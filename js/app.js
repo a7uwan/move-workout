@@ -23,19 +23,31 @@ function renderRoutines(){
 function startWorkout(){
  workoutStart=Date.now();completed=false;showView('timerView');
  WorkoutEngine.start(defaultRoutine,{onUpdate:renderTimer,onFinish:finishWorkout});
+ speak('Get into position');
 }
 function renderTimer(s){
- $('timerStep').textContent=s.phase==='ready'?'GET READY':s.phase==='rest'?'REST':'EXERCISE';
+ $('timerStep').textContent=s.phase==='idle'?'READY WHEN YOU ARE':s.phase==='rest'?'REST':s.phase==='done'?'COMPLETE':'EXERCISE';
  $('sessionProgress').textContent=`Exercise ${Math.min(s.index+1,s.total)} of ${s.total}`;
- $('exerciseName').textContent=s.phase==='ready'?'Get into position':s.phase==='rest'?'Take a breath':s.current.name;
- $('exerciseSide').textContent=s.phase==='ready'?'Your workout starts shortly':s.phase==='rest'?'Prepare for the next movement':s.current.side;
- $('timerDisplay').textContent=`00:${String(s.remaining).padStart(2,'0')}`;
- $('upNext').textContent=s.phase==='rest'?(s.next?.name||'Finish workout'):(s.current?.name||'Starting');
- $('pauseBtn').textContent=s.paused?'RESUME':'PAUSE';
- const total=s.phase==='ready'?10:s.phase==='rest'?s.current.rest:s.current.duration;
- const pct=total?((total-s.remaining)/total)*360:0;
+ $('exerciseName').textContent=s.phase==='idle'?'Get into position':s.phase==='rest'?'Take a breath':s.current?.name||'Workout complete';
+ $('exerciseSide').textContent=s.phase==='idle'?'Get comfortable, then tap START TIMER':s.phase==='rest'?'Prepare for the next movement':(s.current?.side||'');
+ $('timerDisplay').textContent=s.phase==='idle'?'00:00':`00:${String(s.remaining).padStart(2,'0')}`;
+ $('upNext').textContent=s.phase==='idle'?s.current.name:(s.phase==='rest'?(s.next?.name||'Finish workout'):(s.next?.name||'Finish workout'));
+ $('pauseBtn').textContent=s.phase==='idle'?'START TIMER':s.paused?'RESUME':'PAUSE';
+ $('pauseBtn').disabled=s.phase==='done'||s.phase==='stopped';
+ const total=s.phase==='rest'?s.current.rest:s.current.duration;
+ const pct=(total && s.phase!=='idle')?((total-s.remaining)/total)*360:0;
  $('timerRing').style.background=`conic-gradient(var(--green) ${pct}deg,rgba(255,255,255,.10) ${pct}deg)`;
  if(s.remaining<=3 && s.remaining>0 && !s.paused) beep();
+ const signature=`${s.phase}-${s.index}`;
+ if(signature!==lastAnnouncement && (s.phase==='exercise'||s.phase==='rest')){lastAnnouncement=signature;speak(s.phase==='rest'?'Rest':s.current.name);}
+ if(s.phase==='idle') lastAnnouncement='idle';
+}
+let lastAnnouncement='';
+function speak(message){
+ if(!('speechSynthesis' in window)) return;
+ window.speechSynthesis.cancel();
+ const utterance=new SpeechSynthesisUtterance(message);utterance.lang='en-US';utterance.rate=0.92;
+ window.speechSynthesis.speak(utterance);
 }
 function beep(){try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;const c=new C(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=660;g.gain.value=.035;o.start();o.stop(c.currentTime+.09);o.onended=()=>c.close();}catch(e){}}
 async function finishWorkout(data){
@@ -52,7 +64,7 @@ async function renderStats(){
 document.querySelectorAll('.nav-item').forEach(b=>b.addEventListener('click',()=>{showView(b.dataset.view);renderStats();}));
 $('openWorkouts').onclick=()=>showView('workoutsView');$('startFeatured').onclick=startWorkout;
 $('backHome').onclick=()=>{WorkoutEngine.stop();showView('homeView');};
-$('pauseBtn').onclick=()=>{const s=WorkoutEngine.state();s.paused?WorkoutEngine.resume():WorkoutEngine.pause();};
+$('pauseBtn').onclick=()=>{const s=WorkoutEngine.state();if(s.phase==='idle'){WorkoutEngine.startCurrent();}else if(s.paused){WorkoutEngine.resume();}else{WorkoutEngine.pause();}};
 $('skipBtn').onclick=()=>WorkoutEngine.skip();
 $('endBtn').onclick=()=>{if(confirm('End this workout now? It will not be counted as completed.')){WorkoutEngine.stop();showView('homeView');toast('Workout ended');}};
 $('todayLabel').textContent=new Date().toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'}).toUpperCase();
