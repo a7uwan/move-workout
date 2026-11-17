@@ -53,7 +53,17 @@ function beep(){try{const C=window.AudioContext||window.webkitAudioContext;if(!C
 async function finishWorkout(data){
  completed=true;
  const record={id:crypto.randomUUID(),routineName:'Daily Mobility',startedAt:data.startedAt,endedAt:data.endedAt,durationSeconds:Math.round((data.endedAt-data.startedAt)/1000),status:'completed',syncStatus:'pending'};
- await MoveDB.saveWorkout(record);toast('Workout saved on this device');renderStats();showView('historyView');
+ await MoveDB.saveWorkout(record);
+ try {
+   await MoveAPI.saveWorkout(record);
+   record.syncStatus='synced';
+   await MoveDB.saveWorkout(record);
+   toast('Workout saved and synced to Google Sheets');
+ } catch (err) {
+   console.warn('MOVE cloud sync pending:', err);
+   toast('Saved on this device · cloud sync pending');
+ }
+ renderStats();showView('historyView');
 }
 async function renderStats(){
  const logs=await MoveDB.getWorkouts(),mins=logs.reduce((a,x)=>a+Math.round(x.durationSeconds/60),0);
@@ -68,7 +78,26 @@ $('pauseBtn').onclick=()=>{const s=WorkoutEngine.state();if(s.phase==='idle'){Wo
 $('skipBtn').onclick=()=>WorkoutEngine.skip();
 $('endBtn').onclick=()=>{if(confirm('End this workout now? It will not be counted as completed.')){WorkoutEngine.stop();showView('homeView');toast('Workout ended');}};
 $('todayLabel').textContent=new Date().toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'}).toUpperCase();
-renderRoutines();renderStats();
-window.addEventListener('online',()=>$('connectionStatus').textContent='Online');
+renderRoutines();renderStats();syncPendingWorkouts();
+async function syncPendingWorkouts(){
+ if(!navigator.onLine) return;
+ try {
+   const logs=await MoveDB.getWorkouts();
+   const pending=logs.filter(x=>x.syncStatus!=='synced');
+   for(const record of pending){
+     await MoveAPI.saveWorkout(record);
+     record.syncStatus='synced';
+     await MoveDB.saveWorkout(record);
+   }
+   if(pending.length) toast('Pending workouts synced to Google Sheets');
+   renderStats();
+ } catch(err) {
+   console.warn('MOVE sync will retry later:',err.message);
+ }
+}
+window.addEventListener('online',()=>{
+ $('connectionStatus').textContent='Online';
+ syncPendingWorkouts();
+});
 window.addEventListener('offline',()=>$('connectionStatus').textContent='Offline');
 $('connectionStatus').textContent=navigator.onLine?'Ready':'Offline';

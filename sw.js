@@ -1,5 +1,5 @@
-const CACHE='move-pwa-v1';
-const ASSETS=['./','./index.html','./manifest.json','./css/style.css','./js/database.js','./js/workout-engine.js','./js/app.js'];
+const CACHE='move-pwa-v2-api';
+const ASSETS=['./','./index.html','./manifest.json','./css/style.css','./js/config.js','./js/api.js','./js/database.js','./js/workout-engine.js','./js/app.js'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS))));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))));
 self.addEventListener('fetch',event=>{
