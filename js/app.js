@@ -59,10 +59,11 @@ async function finishWorkout(data){
    record.syncStatus='synced';
    await MoveDB.saveWorkout(record);
    toast('Workout saved and synced to Google Sheets');
- } catch (err) {
+} catch (err) {
    console.warn('MOVE cloud sync pending:', err);
-   toast('Saved on this device · cloud sync pending');
- }
+   toast('Not synced: ' + err.message);
+}
+
  renderStats();showView('historyView');
 }
 async function renderStats(){
