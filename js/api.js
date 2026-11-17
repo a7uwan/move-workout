@@ -44,6 +44,7 @@ const MoveAPI = (() => {
   return {
     ping: () => request({action: 'ping'}),
     getRoutines: () => request({action: 'routines'}),
+    getWorkouts: () => request({action: 'workouts'}),
     saveWorkout: record => request({
       action: 'saveWorkout',
       log_id: record.id,
