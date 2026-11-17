@@ -1,6 +1,6 @@
 // MOVE Google Apps Script API — JSONP enabled for the GitHub Pages PWA.
 // IMPORTANT: Copy your existing SHEET_ID and API_TOKEN values into these constants.
-const SHEET_ID = 'https://script.google.com/macros/s/AKfycbyI40V2UwZHqzF2N9MI6ArCZE7qpCJLw7aGGSnR72DCsZWpXCWk6EfY10VpC8odSVy3/exec';
+const SHEET_ID = '1kW5nZ0M4GPHT9RY2sx0e-lUlJhqJ-H-VGeiLxJAN5DQ';
 const API_TOKEN = '3167436';
 
 function doGet(e) {
