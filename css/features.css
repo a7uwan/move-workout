@@ -1,0 +1,24 @@
+/* Feature styles added per milestone. Loaded after css/style.css. */
+
+/* Stats: calendar */
+.calendar-card{padding:16px;margin-top:12px}
+.cal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.cal-title{text-align:center;flex:1}
+.cal-title strong{display:block;font-size:15px}
+.cal-title small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
+.cal-nav{background:rgba(255,255,255,.07);border:1px solid var(--line);color:var(--text);width:34px;height:34px;border-radius:10px;font-size:18px;line-height:1}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cal-dow span{text-align:center;font-size:10px;color:var(--muted);letter-spacing:1px;padding-bottom:4px}
+.cal-cell{position:relative;aspect-ratio:1;border-radius:12px;border:1px solid transparent;background:rgba(255,255,255,.03);color:var(--text);font-size:13px;display:flex;align-items:center;justify-content:center;padding:0}
+.cal-cell.cal-has{background:rgba(110,231,183,.18);border-color:rgba(110,231,183,.45);color:var(--green);font-weight:700}
+.cal-cell.cal-today{box-shadow:inset 0 0 0 1px var(--blue)}
+.cal-cell.cal-selected{background:var(--green);border-color:var(--green);color:#08251d}
+.cal-cell i{position:absolute;bottom:3px;right:5px;font-style:normal;font-size:8px}
+.cal-hint{color:var(--muted);font-size:13px;text-align:center;margin:16px 0}
+
+/* Stats: chart */
+.chart-card{padding:16px;margin-top:14px}
+.chart-card svg{width:100%;height:auto;display:block;margin-top:12px}
+.chart-card .bar{fill:var(--green);opacity:.85}
+.chart-card text{fill:var(--muted);font-size:9px}
+.chart-card .bar-val{fill:var(--text);font-size:10px;font-weight:700}
