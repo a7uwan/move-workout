@@ -52,7 +52,8 @@ const MoveAPI = (() => {
       start_time: String(record.startedAt),
       end_time: String(record.endedAt),
       duration_seconds: String(record.durationSeconds),
-      status: record.status || 'completed'
+      status: record.status || 'completed',
+      reps: String(record.reps || 0)
     })
   };
 })();

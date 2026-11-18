@@ -10,6 +10,7 @@ function doGet(e) {
   const action = p.action || 'ping';
   if (action === 'ping') return respond_({ok:true,app:'MOVE API'}, p.callback);
   if (action === 'routines') return respond_({ok:true,routines:readRows_('Routines')}, p.callback);
+  if (action === 'workouts') return respond_({ok:true,workouts:readWorkouts_()}, p.callback);
 
   if (action === 'saveWorkout') {
     try {
@@ -19,7 +20,8 @@ function doGet(e) {
         startedAt: p.start_time,
         endedAt: p.end_time,
         durationSeconds: p.duration_seconds,
-        status: p.status || 'completed'
+        status: p.status || 'completed',
+        reps: p.reps || 0
       };
       if (!log.id || !log.routineName || !log.startedAt || !log.endedAt) {
         throw new Error('Missing required workout fields');
@@ -42,7 +44,8 @@ function doGet(e) {
             new Date(Number(log.startedAt)),
             new Date(Number(log.endedAt)),
             Number(log.durationSeconds),
-            log.status
+            log.status,
+            Number(log.reps) || 0
           ]);
         }
       } finally {
@@ -71,6 +74,22 @@ function readRows_(tabName) {
     headers.forEach((header, index) => item[header] = row[index]);
     return item;
   });
+}
+
+// Returns WorkoutLogs as normalized objects, with times in epoch milliseconds.
+function readWorkouts_() {
+  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('WorkoutLogs');
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 7).getValues();
+  return rows.filter(r => r[0] !== '').map(r => ({
+    id: String(r[0]),
+    routineName: String(r[1]),
+    startedAt: new Date(r[2]).getTime(),
+    endedAt: new Date(r[3]).getTime(),
+    durationSeconds: Number(r[4]) || 0,
+    status: String(r[5] || 'completed'),
+    reps: Number(r[6]) || 0
+  }));
 }
 
 function respond_(data, callback) {
