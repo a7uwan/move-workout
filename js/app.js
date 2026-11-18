@@ -42,7 +42,12 @@ async function keepAwake() {
     console.warn('MOVE wake lock unavailable:', err.message);
   }
 }
-document.addEventListener('visibilitychange', () => { if (!document.hidden) keepAwake(); });
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    keepAwake();
+    WorkoutEngine.catchUp(); // apply steps that ended while the phone was locked
+  }
+});
 document.addEventListener('pointerdown', keepAwake);
 
 /* ---------- Sound and speech ---------- */
@@ -53,6 +58,29 @@ function getAudio() {
   audioCtx ||= new Ctor();
   if (audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
+}
+
+// A silent oscillator keeps the audio session active during a workout, so the page is less likely to be suspended
+// when the screen locks. Released when the workout ends.
+let keepAliveOsc = null;
+function keepAudioAlive() {
+  const c = getAudio();
+  if (!c || keepAliveOsc) return;
+  try {
+    const o = c.createOscillator();
+    const g = c.createGain();
+    g.gain.value = 0.0001;
+    o.connect(g);
+    g.connect(c.destination);
+    o.start();
+    keepAliveOsc = o;
+  } catch (err) {
+    console.warn('MOVE keep-alive failed:', err.message);
+  }
+}
+function releaseAudio() {
+  try { keepAliveOsc?.stop(); } catch (_) {}
+  keepAliveOsc = null;
 }
 
 function beep() {
@@ -115,9 +143,27 @@ function setImage(id, url) {
   el.hidden = false;
 }
 
+// Lock-screen controls (iOS and Android). Shows the exercise name and play/pause/skip.
+let mediaHandlersSet = false;
+function updateMediaSession(s) {
+  if (!('mediaSession' in navigator)) return;
+  const title = s.phase === 'rest' ? 'Rest' : (s.current?.name || 'MOVE');
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({ title, artist: 'MOVE', album: routineName });
+    navigator.mediaSession.playbackState = s.paused ? 'paused' : 'playing';
+    if (!mediaHandlersSet) {
+      mediaHandlersSet = true;
+      navigator.mediaSession.setActionHandler('play', () => { if (lastSnap?.paused) $('pauseBtn').click(); });
+      navigator.mediaSession.setActionHandler('pause', () => { if (lastSnap && !lastSnap.paused) $('pauseBtn').click(); });
+      navigator.mediaSession.setActionHandler('nexttrack', () => WorkoutEngine.skip());
+    }
+  } catch (_) { /* not supported on this browser */ }
+}
+
 function renderTimer(s) {
   lastSnap = s;
   refreshResumeBar();
+  updateMediaSession(s);
   const idle = s.phase === 'idle';
   const rest = s.phase === 'rest';
   const done = s.phase === 'done';
@@ -159,6 +205,7 @@ function renderTimer(s) {
 // Called by RoutinesView with { name, items, reps } once the user taps START WORKOUT.
 function startWorkout({ name, items, reps }) {
   getAudio();
+  keepAudioAlive();
   chosenReps = reps;
   currentItems = items;
   $('summaryCard').hidden = true;
@@ -179,7 +226,7 @@ function startWorkout({ name, items, reps }) {
 function showSummary(record) {
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const exercises = currentItems.length;
-  const rounds = exercises * chosenReps;
+  const rounds = currentItems.reduce((sum, i) => sum + (i.reps > 0 ? i.reps : chosenReps), 0);
   const tapped = currentItems.filter(i => i.side === 'Count').length;
   const sec = Math.round(record.durationSeconds);
   const time = sec >= 60 ? `${Math.floor(sec / 60)} min ${sec % 60} s` : `${sec} s`;
@@ -189,7 +236,7 @@ function showSummary(record) {
     <div class="summary-grid">
       <div><strong>${time}</strong><small>Total time</small></div>
       <div><strong>${exercises}</strong><small>Exercises</small></div>
-      <div><strong>${rounds}</strong><small>Rounds (${chosenReps} each)</small></div>
+      <div><strong>${rounds}</strong><small>Rounds</small></div>
     </div>
     ${tapped ? `<p class="summary-note">${tapped} exercise${tapped > 1 ? 's were' : ' was'} tap-counted.</p>` : ''}
     <button class="primary-btn" id="summaryHistory">VIEW HISTORY <span>→</span></button>`;
@@ -210,6 +257,7 @@ async function finishWorkout(data) {
     syncStatus: 'pending'
   };
   await MoveDB.saveWorkout(record);
+  releaseAudio();
   speak('Workout complete. Well done.');
   showSummary(record);
   try {
@@ -269,12 +317,27 @@ async function refreshData() {
 
 async function loadRoutines() {
   const routines = await RoutinesView.load();
+  prefetchImages(routines);
   const first = Object.values(routines)[0];
   if (first) {
     const min = Math.round(WorkoutEngine.plannedSeconds(first.items, 1) / 60);
     $('featuredName').textContent = first.name;
     $('featuredMeta').textContent = `${first.items.length} exercises · about ${min} min at 1 rep each`;
   }
+}
+
+/* ---------- Offline exercise images ---------- */
+// Fetches each exercise image once so the service worker stores it. Runs after routines load.
+// Images are stored in the 'move-images-v1' cache, which the service worker trims to 80 entries.
+function prefetchImages(routines) {
+  if (!navigator.onLine || !('caches' in window)) return;
+  const urls = new Set();
+  for (const r of Object.values(routines || {})) {
+    for (const item of r.items) if (item.image) urls.add(item.image);
+  }
+  urls.forEach(url => {
+    fetch(url, { mode: 'no-cors' }).catch(() => { /* ignored: the image just won't be cached */ });
+  });
 }
 
 /* ---------- Summary boxes ---------- */
@@ -310,12 +373,52 @@ function renderHomeMonth(logs) {
   $('monthCompleted').textContent = `${m.count} · ${m.minutes} min`;
 }
 
+/* ---------- Streak reminders and app badge ---------- */
+const REMINDER_SENT_KEY = 'move-reminder-sent';
+const REMINDER_HOUR = 18;
+
+function dayKey(ts) {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
+// Badge shows the streak while today has no workout. Notifications need permission and a time after REMINDER_HOUR.
+// The app checks when it opens or refreshes. No background push is sent, because that needs a server.
+async function updateReminders(logs) {
+  if (!('Notification' in window)) return;
+  const today = dayKey(Date.now());
+  const doneToday = logs.some(w => dayKey(w.startedAt) === today);
+  const streak = calcStreak(logs);
+  const atRisk = !doneToday && streak > 0;
+
+  $('enableReminders').hidden = Notification.permission !== 'default';
+
+  if ('setAppBadge' in navigator) {
+    try {
+      if (atRisk) await navigator.setAppBadge(streak);
+      else await navigator.clearAppBadge();
+    } catch (_) { /* badges are optional */ }
+  }
+
+  if (!atRisk || Notification.permission !== 'granted' || new Date().getHours() < REMINDER_HOUR) return;
+  if (localStorage.getItem(REMINDER_SENT_KEY) === today) return;
+  const reg = await navigator.serviceWorker?.getRegistration();
+  if (!reg) return;
+  await reg.showNotification('MOVE', {
+    body: `Keep your ${streak}-day streak. Today's workout is not done yet.`,
+    icon: './assets/icons/apple-touch-icon.png',
+    tag: 'move-streak'
+  });
+  localStorage.setItem(REMINDER_SENT_KEY, today);
+}
+
 async function renderAll() {
   const logs = await MoveDB.getWorkouts();
   renderStats(logs);
   renderHomeMonth(logs);
   StatsView.render(logs);
   HistoryView.render(logs);
+  await updateReminders(logs);
 }
 
 /* ---------- Events ---------- */
@@ -323,6 +426,12 @@ document.querySelectorAll('.nav-item').forEach(b => b.addEventListener('click', 
   showView(b.dataset.view);
   refreshData();
 }));
+$('enableReminders').onclick = async () => {
+  if (!('Notification' in window)) return;
+  const result = await Notification.requestPermission();
+  toast(result === 'granted' ? 'Streak reminders on' : 'Reminders not allowed');
+  renderAll();
+};
 $('openWorkouts').onclick = () => showView('workoutsView');
 $('startFeatured').onclick = () => showView('workoutsView');
 $('backHome').onclick = () => showView('workoutsView'); // leaves the workout running
@@ -342,6 +451,7 @@ $('endBtn').onclick = () => {
   if (confirm('End this workout now? It will not be counted as completed.')) {
     WorkoutEngine.stop();
     showView('workoutsView');
+    releaseAudio();
     toast('Workout ended');
   }
 };

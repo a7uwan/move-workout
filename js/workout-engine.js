@@ -29,7 +29,8 @@ const WorkoutEngine = (() => {
   function buildSegments(items, repsOverride) {
     const out = [];
     items.forEach((ex, i) => {
-      const reps = Math.max(1, Number(repsOverride) || Number(ex.reps) || 1);
+      // Sheet Reps wins when set. A blank Reps cell uses the rep picker value.
+      const reps = Number(ex.reps) > 0 ? Number(ex.reps) : Math.max(1, Number(repsOverride) || 1);
       for (let k = 1; k <= reps; k++) {
         const base = { ex: i, rep: k, reps };
         if (ex.side === 'Count') {
@@ -77,13 +78,14 @@ const WorkoutEngine = (() => {
 
   function notify() { onUpdate(snapshot()); }
 
-  function begin(i) {
+  // t0 is the start time of this segment. Passing the previous segment's end keeps timing exact after catch-up.
+  function begin(i, t0 = Date.now()) {
     segIdx = i;
     const seg = segs[i];
     phase = seg.type === 'rest' ? 'rest' : seg.type === 'count' ? 'count' : 'exercise';
     count = 0;
     remaining = seg.seconds;
-    endAt = Date.now() + remaining * 1000;
+    endAt = t0 + remaining * 1000;
     paused = false;
     sideCued = false;
     lastLeft = -1;
@@ -109,9 +111,9 @@ const WorkoutEngine = (() => {
     else d.seconds += seg.seconds;
   }
 
-  function advanceSeg() {
+  function advanceSeg(t0 = Date.now()) {
     if (segIdx + 1 >= segs.length) return finish();
-    begin(segIdx + 1);
+    begin(segIdx + 1, t0);
   }
 
   function ensureTicker() {
@@ -138,7 +140,11 @@ const WorkoutEngine = (() => {
       }
       notify();
     }
-    if (left <= 0) { markDone(seg); advanceSeg(); }
+    if (left <= 0) {
+      markDone(seg);
+      advanceSeg(endAt);
+      tick(); // handles any segments that also ended while the page was in the background
+    }
   }
 
   // Prepares the routine. Nothing runs until startCurrent() is called.
@@ -215,5 +221,8 @@ const WorkoutEngine = (() => {
 
   function state() { return snapshot(); }
 
-  return { start, startCurrent, pause, resume, skip, stop, tap, state, plannedSeconds };
+  // Call when the page becomes visible again. Timers that were throttled or frozen while locked catch up here.
+  function catchUp() { tick(); }
+
+  return { start, startCurrent, pause, resume, skip, stop, tap, state, plannedSeconds, catchUp };
 })();

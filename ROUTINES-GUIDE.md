@@ -12,7 +12,7 @@ The app reads the tab named **Routines** in your Google Sheet. Each row is one e
 | **Duration_s** | Seconds for the exercise. For LR30 exercises, this is the total for both sides. | Yes (blank becomes 30) | `60` |
 | **Rest_s** | Seconds of rest after each rep. Use `0` for no rest. | No (blank becomes 0) | `0` |
 | **Side** | `LR30`, `None`, or `Count` (see below). | No (blank becomes None) | `LR30` |
-| **Reps** | Default reps. The rep picker on the Workout tab overrides this value each time you start. | No | `6` |
+| **Reps** | Rounds for this exercise. If blank, the rep picker value on the Workout tab is used. | No | `6` |
 | **Image_URL** | Direct `https://` link to a picture of the exercise. | No | `https://example.com/piriformis.jpg` |
 | **Notes** | Short cue shown under the exercise name. | No | `Keep the back flat` |
 

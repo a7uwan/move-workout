@@ -1,69 +1,93 @@
-// MOVE Google Apps Script API — JSONP enabled for the GitHub Pages PWA.
-// IMPORTANT: Copy your existing SHEET_ID and API_TOKEN values into these constants.
+// MOVE Google Apps Script API: JSONP for the GitHub Pages PWA.
+// Set the three constants below before saving. Use long random values, not the old token.
+// Generate one with: openssl rand -hex 24
 const SHEET_ID = '1kW5nZ0M4GPHT9RY2sx0e-lUlJhqJ-H-VGeiLxJAN5DQ';
-const API_TOKEN = '3167436';
+const READ_TOKEN = '9c0abb273fdc999f3d3e9d4cddd8f547e40738b4dbb3a004';   // allows reading Routines and WorkoutLogs
+const WRITE_TOKEN = 'bc9212475e5e4a02a85752bf0b1017d36ff5936c3a556912'; // allows adding a workout row only
+
+const LIMITS = {
+  maxDetailsChars: 4000,
+  maxNameChars: 120,
+  maxDurationSeconds: 6 * 3600,
+  maxReps: 1000
+};
 
 function doGet(e) {
   const p = (e && e.parameter) || {};
-  if (p.token !== API_TOKEN) return respond_({ok:false,error:'Unauthorized'}, p.callback);
-
   const action = p.action || 'ping';
-  if (action === 'ping') return respond_({ok:true,app:'MOVE API'}, p.callback);
-  if (action === 'routines') return respond_({ok:true,routines:readRows_('Routines')}, p.callback);
-  if (action === 'workouts') return respond_({ok:true,workouts:readWorkouts_()}, p.callback);
+  const callback = p.callback;
+
+  if (action === 'ping') return respond_({ok:true, app:'MOVE API'}, callback);
 
   if (action === 'saveWorkout') {
-    try {
-      const log = {
-        id: p.log_id,
-        routineName: p.routine_name,
-        startedAt: p.start_time,
-        endedAt: p.end_time,
-        durationSeconds: p.duration_seconds,
-        status: p.status || 'completed',
-        reps: p.reps || 0,
-        details: p.details || '[]'
-      };
-      if (!log.id || !log.routineName || !log.startedAt || !log.endedAt) {
-        throw new Error('Missing required workout fields');
-      }
-      const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('WorkoutLogs');
-      if (!sheet) throw new Error('WorkoutLogs tab not found');
-
-      const lock = LockService.getScriptLock();
-      lock.waitLock(10000);
-      try {
-        const lastRow = sheet.getLastRow();
-        const existingIds = lastRow > 1
-          ? sheet.getRange(2, 1, lastRow - 1, 1).getValues().flat()
-          : [];
-        // Prevent duplicate rows if a device retries a pending sync.
-        if (!existingIds.includes(log.id)) {
-          sheet.appendRow([
-            log.id,
-            log.routineName,
-            new Date(Number(log.startedAt)),
-            new Date(Number(log.endedAt)),
-            Number(log.durationSeconds),
-            log.status,
-            Number(log.reps) || 0,
-            log.details
-          ]);
-        }
-      } finally {
-        lock.releaseLock();
-      }
-      return respond_({ok:true,id:log.id}, p.callback);
-    } catch (err) {
-      return respond_({ok:false,error:String(err)}, p.callback);
-    }
+    if (!safeEqual_(p.token, WRITE_TOKEN)) return respond_({ok:false,error:'Unauthorized'}, callback);
+    return saveWorkout_(p, callback);
   }
-  return respond_({ok:false,error:'Unknown action'}, p.callback);
+
+  if (!safeEqual_(p.token, READ_TOKEN)) return respond_({ok:false,error:'Unauthorized'}, callback);
+  if (action === 'routines') return respond_({ok:true, routines:readRows_('Routines')}, callback);
+  if (action === 'workouts') return respond_({ok:true, workouts:readWorkouts_()}, callback);
+
+  return respond_({ok:false,error:'Unknown action'}, callback);
 }
 
-// The PWA uses doGet JSONP requests. Keep doPost for future non-browser integrations.
+function saveWorkout_(p, callback) {
+  try {
+    const log = {
+      id: String(p.log_id || ''),
+      routineName: String(p.routine_name || '').slice(0, LIMITS.maxNameChars),
+      startedAt: Number(p.start_time),
+      endedAt: Number(p.end_time),
+      durationSeconds: Number(p.duration_seconds),
+      status: String(p.status || 'completed').slice(0, 20),
+      reps: Number(p.reps) || 0,
+      details: String(p.details || '[]')
+    };
+
+    // Input checks. Anything outside these ranges is rejected before it reaches the sheet.
+    if (!/^[A-Za-z0-9-]{8,64}$/.test(log.id)) throw new Error('Invalid log_id');
+    if (!log.routineName) throw new Error('Missing routine_name');
+    if (!(log.startedAt > 0) || !(log.endedAt >= log.startedAt)) throw new Error('Invalid start or end time');
+    if (!(log.durationSeconds >= 0 && log.durationSeconds <= LIMITS.maxDurationSeconds)) throw new Error('Invalid duration');
+    if (!(log.reps >= 0 && log.reps <= LIMITS.maxReps)) throw new Error('Invalid reps');
+    if (log.details.length > LIMITS.maxDetailsChars) throw new Error('details too large');
+    try { JSON.parse(log.details); } catch (_) { throw new Error('details must be JSON'); }
+
+    const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('WorkoutLogs');
+    if (!sheet) throw new Error('WorkoutLogs tab not found');
+
+    const lock = LockService.getScriptLock();
+    lock.waitLock(10000);
+    try {
+      const lastRow = sheet.getLastRow();
+      const existingIds = lastRow > 1
+        ? sheet.getRange(2, 1, lastRow - 1, 1).getValues().flat()
+        : [];
+      // Prevent duplicate rows if a device retries a pending sync.
+      if (!existingIds.includes(log.id)) {
+        sheet.appendRow([
+          log.id,
+          log.routineName,
+          new Date(log.startedAt),
+          new Date(log.endedAt),
+          log.durationSeconds,
+          log.status,
+          log.reps,
+          log.details
+        ]);
+      }
+    } finally {
+      lock.releaseLock();
+    }
+    return respond_({ok:true, id:log.id}, callback);
+  } catch (err) {
+    return respond_({ok:false, error:String(err)}, callback);
+  }
+}
+
+// The PWA uses doGet JSONP requests. doPost is disabled.
 function doPost(e) {
-  return json_({ok:false,error:'This PWA version uses GET/JSONP. Use doGet actions.'});
+  return json_({ok:false, error:'Use doGet actions.'});
 }
 
 function readRows_(tabName) {
@@ -94,6 +118,14 @@ function readWorkouts_() {
     reps: Number(r[6]) || 0,
     details: String(r[7] || '[]')
   }));
+}
+
+// Compares tokens without stopping at the first mismatched character.
+function safeEqual_(given, expected) {
+  if (!given || !expected || given.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < given.length; i++) diff |= given.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0;
 }
 
 function respond_(data, callback) {
