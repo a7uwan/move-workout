@@ -1,38 +1,55 @@
-# MOVE — API-connected personal workout PWA
+# MOVE: personal workout PWA
 
-## What this milestone adds
-- `js/config.js`: configuration for your Apps Script Web App URL and API token.
-- `js/api.js`: JSONP client for cross-origin calls from GitHub Pages to Apps Script.
-- Completed workout sessions are saved locally first, then synced to the `WorkoutLogs` sheet.
-- If a sync fails, the workout stays on the device as pending and retries when the app is online again.
-- Apps Script deduplicates workout IDs so a retry should not create a duplicate row.
+A phone-friendly workout timer that runs on GitHub Pages and saves completed sessions to a Google Sheet.
 
-## 1. Configure the frontend
-Open `js/config.js` and replace:
-- `PASTE_YOUR_WEB_APP_URL_HERE` with your deployed Apps Script URL ending in `/exec`.
-- `PASTE_YOUR_API_TOKEN_HERE` with the exact API token configured in Apps Script.
+## Features
+- **Home:** streak, this week's minutes, this month's workout count, and a month calendar.
+- **Workouts:** routines loaded from the `Routines` sheet. Pick reps (1 to 20) before START WORKOUT.
+- **Timer:** each exercise repeats for the chosen reps. LR30 exercises run Right 30s, then Left 30s, with "CHANGE SIDE" at 25 seconds into each side. A beep sounds 3 seconds before each new movement. Exercise images come from the `Image_URL` column.
+- **Background use:** leaving the timer keeps the workout running. A "Back to workout" bar appears above the menu.
+- **Screen awake:** the app asks the browser to keep the screen on while it is open.
+- **History:** sessions grouped by month, with each session's duration and monthly totals.
+- **Stats:** summary boxes, a month calendar (tap a date to list its sessions), and a weekly minutes chart.
+- **Offline:** sessions are saved on the device first and synced to Google Sheets when online.
 
-## 2. Update Apps Script
-1. Open the Apps Script project connected to your MOVE spreadsheet.
-2. Replace `Code.gs` with `apps-script/Code.gs` from this package.
-3. IMPORTANT: Copy your existing real `SHEET_ID` and `API_TOKEN` values into the two constants at the top. Do not leave the placeholders.
+## Google Sheet tabs
+| Tab | Purpose | Headers (row 1) |
+|---|---|---|
+| `Routines` | One row per exercise. See `ROUTINES-GUIDE.md`. | `Routine`, `Order`, `Exercise`, `Duration_s`, `Rest_s`, `Side`, `Reps`, `Image_URL`, `Notes` |
+| `WorkoutLogs` | Written by the app, one row per completed session. | `id`, `routineName`, `startedAt`, `endedAt`, `durationSeconds`, `status`, `reps` |
+
+## Setup
+
+### 1. Configure the frontend
+Open `js/config.js` and set:
+- `API_URL` to your Apps Script Web App URL, ending in `/exec`.
+- `API_TOKEN` to the same token used in `Code.gs`.
+
+### 2. Update Apps Script
+1. Open the Apps Script project attached to your spreadsheet.
+2. Replace `Code.gs` with `apps-script/Code.gs` from this project.
+3. Check that `SHEET_ID` and `API_TOKEN` at the top hold your real values, not placeholders.
 4. Save.
 5. Deploy > Manage deployments > Edit (pencil) > Version: New version > Deploy.
-6. Keep using the same Web App URL if editing the existing deployment.
+6. Keep the same Web App URL.
 
-## 3. Update GitHub Pages
-Upload/replace the project files in your existing repository, including the new `js/config.js` and `js/api.js`. Commit the changes and wait for GitHub Pages to publish.
+### 3. Prepare the sheet
+- Add `reps` as the header in column G of `WorkoutLogs` if it is missing.
+- Fill `Routines` as described in `ROUTINES-GUIDE.md`. The FISIO routine is in `FISIO-routine.tsv`.
 
-## 4. Test
-1. Open your MOVE site and refresh it. If an old version remains cached, close the installed PWA and reopen it; the service worker cache version has been updated.
-2. Start a workout, then tap START TIMER to begin the first exercise.
-3. Complete a workout.
-4. Open `WorkoutLogs` in Google Sheets. A new row should appear with ID, routine name, start time, end time, duration seconds, and status.
-5. If the phone is offline during completion, the record remains local and the app attempts to sync when it comes online again.
+### 4. Publish
+Upload the project files to your GitHub Pages repository, including `css/theme-glass.css`, `css/features.css`, `js/stats.js`, `js/routines.js`, `js/history.js`, and `ROUTINES-GUIDE.md`. Commit and wait for GitHub Pages to publish.
+
+If an old version stays on the phone, close the installed app and reopen it. The service worker cache is named `move-pwa-v6-glass`.
+
+## Usage notes
+- **Image links** must be direct `https://` links to an image file.
+- **Dumbbell curls** use a 60-second timer. Count the 100 reps yourself.
+- **Sound and speech** need a tap on the screen before they play, because mobile browsers block audio until then.
+- **Wake lock** works on iOS 16.4 and later, and on current Chrome and Edge. Older browsers keep the screen on only if the phone's own auto-lock setting allows it.
 
 ## Security and limitations
-- The token embedded in `js/config.js` is visible to anyone who inspects the public website. It is not secure authentication. Use this only for personal testing; do not store sensitive information in this spreadsheet.
-- JSONP uses GET requests, which are appropriate only for this small, non-sensitive personal workout log. Do not put private data or large payloads in query strings.
-- This milestone syncs completed sessions only; it does not yet sync exercise-by-exercise detail or custom routine edits.
-- The existing exercise timer and announcements remain in place. The dumbbell curl is still a timed placeholder, not yet a 100-rep counter.
-- Apple Health integration requires a native iOS app, not a PWA.
+- The token in `js/config.js` is visible to anyone who opens the public site. Use it only for personal data, and keep no sensitive information in the sheet.
+- Requests use JSONP (GET), which suits small personal logs. Do not send large payloads.
+- Apple Health integration needs a native iOS app, not a PWA.
+- Edits to a routine in the sheet appear after the app refreshes. The last copy is kept on the device for offline use.

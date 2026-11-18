@@ -11,6 +11,7 @@
   <link rel="apple-touch-icon" href="./assets/icons/apple-touch-icon.png">
   <link rel="stylesheet" href="./css/style.css">
   <link rel="stylesheet" href="./css/features.css">
+  <link rel="stylesheet" href="./css/theme-glass.css">
   <title>MOVE — Personal Workout</title>
 </head>
 <body>
@@ -26,6 +27,15 @@
         <article class="glass stat-card"><span class="stat-icon">🔥</span><strong id="streakValue">0 days</strong><small>Current streak</small></article>
         <article class="glass stat-card"><span class="stat-icon">◷</span><strong id="weekMinutes">0 min</strong><small>This week</small></article>
       </div>
+      <article class="glass month-box">
+        <div class="eyebrow" id="monthLabel">THIS MONTH</div>
+        <div class="month-row">
+          <div><strong id="monthWorkouts">0 workouts</strong><small>This month</small></div>
+          <div><strong id="monthCompleted">0</strong><small>Completed sessions this month</small></div>
+        </div>
+      </article>
+      <section id="homeCalendar"></section>
+      <section id="homeDayDetail"></section>
       <article class="glass featured">
         <div class="eyebrow">YOUR ROUTINE</div><h3 id="featuredName">Loading routines…</h3>
         <p id="featuredMeta">Routines come from your Google Sheet</p>
@@ -42,11 +52,14 @@
 
     <section id="timerView" class="view">
       <button class="back-btn" id="backHome">← Workouts</button>
+      <article id="summaryCard" class="glass summary-card" hidden></article>
       <div class="timer-top"><div class="eyebrow" id="timerStep">READY</div><div class="session-progress" id="sessionProgress">Exercise 1 of 1</div></div>
+      <img id="currentImg" class="timer-img" alt="" hidden>
       <h2 id="exerciseName" class="exercise-name">Get into position</h2>
       <p id="exerciseSide" class="exercise-side">Tap START TIMER when ready</p>
       <div class="timer-ring" id="timerRing"><div><strong id="timerDisplay">00:00</strong><small>REMAINING</small></div></div>
-      <div class="up-next glass"><div><small>UP NEXT</small><strong id="upNext"></strong></div><span>↗</span></div>
+      <div class="up-next glass"><img id="nextImg" class="next-img" alt="" hidden><div><small>UP NEXT</small><strong id="upNext"></strong></div><span>↗</span></div>
+      <button class="primary-btn tap-btn" id="tapBtn" hidden>TAP +1 REP</button>
       <div class="timer-controls">
         <button class="secondary-btn" id="skipBtn">SKIP ↠</button>
         <button class="primary-btn pause-btn" id="pauseBtn">START TIMER</button>
@@ -69,7 +82,13 @@
       <section id="statsCalendar"></section>
       <section id="statsDayDetail"></section>
       <section id="statsChart"></section>
+      <section id="statsExercises"></section>
     </section>
+
+    <div id="resumeBar" class="resume-bar glass" hidden>
+      <div><small>WORKOUT IN PROGRESS</small><strong id="resumeText"></strong></div>
+      <button class="resume-btn" id="resumeBtn">BACK TO WORKOUT ↗</button>
+    </div>
 
     <nav class="bottom-nav">
       <button class="nav-item selected" data-view="homeView"><span>⌂</span><small>Home</small></button>

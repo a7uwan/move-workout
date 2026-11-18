@@ -1,5 +1,5 @@
-const CACHE='move-pwa-v5-features';
-const ASSETS=['./','./index.html','./manifest.json','./css/style.css','./css/features.css','./js/config.js','./js/api.js','./js/database.js','./js/workout-engine.js','./js/stats.js','./js/routines.js','./js/history.js','./js/app.js'];
+const CACHE='move-pwa-v6-glass';
+const ASSETS=['./','./index.html','./manifest.json','./css/style.css','./css/features.css','./css/theme-glass.css','./js/config.js','./js/api.js','./js/database.js','./js/workout-engine.js','./js/stats.js','./js/routines.js','./js/history.js','./js/app.js'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS))));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))));
 self.addEventListener('fetch',event=>{

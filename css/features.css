@@ -43,6 +43,26 @@
 .rep-hint{color:var(--muted);font-size:12px;text-align:center;margin:10px 0 0}
 .primary-btn:disabled{opacity:.35;cursor:not-allowed}
 
+/* Stats: time per exercise */
+.ex-bars{display:grid;gap:12px;margin-top:12px}
+.ex-bar-row{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center}
+.ex-bar-label strong{display:block;font-size:13px}
+.ex-bar-label small{display:block;color:var(--muted);font-size:10px;margin-top:2px}
+.ex-bar-track{grid-column:1 / -1;height:8px;border-radius:8px;background:rgba(255,255,255,.08);overflow:hidden}
+.ex-bar-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--blue));border-radius:8px}
+.ex-bar-value{font-size:12px;font-weight:700;color:var(--green);white-space:nowrap}
+
+/* Session summary card */
+.summary-card{padding:18px;margin:14px 0 0}
+.summary-card h3{font-size:22px;margin:8px 0 14px}
+.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.summary-grid strong{display:block;font-size:18px;letter-spacing:-.3px}
+.summary-grid small{display:block;color:var(--muted);font-size:10px;margin-top:4px}
+.summary-note{color:var(--muted);font-size:12px;margin:12px 0 0}
+
+/* Tap counter for Side = Count exercises */
+.tap-btn{font-size:22px;padding:26px 18px;margin:18px 0 0;letter-spacing:1px}
+
 /* History tab: month groups and session duration */
 .hist-month{margin-bottom:22px}
 .hist-month-head{display:flex;justify-content:space-between;align-items:center;margin:4px 2px 10px}
@@ -55,3 +75,19 @@
 .dur-pill{background:rgba(110,231,183,.16);border:1px solid rgba(110,231,183,.4);color:var(--green);border-radius:20px;padding:6px 10px;font-size:12px;font-weight:700;white-space:nowrap}
 .dur-track{height:6px;border-radius:6px;background:rgba(255,255,255,.08);margin-top:12px;overflow:hidden}
 .dur-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--blue));border-radius:6px}
+
+/* Timer: exercise images from the Routines sheet (column Image_URL) */
+.timer-img{display:block;width:100%;max-height:200px;object-fit:contain;border-radius:18px;margin:18px 0 0;background:rgba(255,255,255,.05);border:1px solid var(--line)}
+.next-img{width:52px;height:52px;flex:0 0 52px;border-radius:12px;object-fit:cover;margin-right:12px;border:1px solid var(--line)}
+
+/* Resume bar: shown while a routine runs and the timer screen is closed */
+[hidden]{display:none!important}
+.resume-bar{position:fixed;z-index:6;left:50%;transform:translateX(-50%);bottom:92px;width:min(calc(100% - 40px),520px);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.resume-bar small{display:block;color:var(--muted);font-size:9px;letter-spacing:1.5px}
+.resume-bar strong{display:block;font-size:14px;margin-top:4px}
+/* Home: this-month summary box */
+.month-box{padding:18px;margin-bottom:14px}
+.month-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.month-row strong{display:block;font-size:20px;letter-spacing:-.4px}
+.month-row small{display:block;color:var(--muted);font-size:11px;margin-top:4px}
+.resume-btn{background:var(--green);color:#08251d;border:0;border-radius:12px;padding:10px 12px;font-weight:800;font-size:11px;letter-spacing:.5px;white-space:nowrap}

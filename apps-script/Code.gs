@@ -21,7 +21,8 @@ function doGet(e) {
         endedAt: p.end_time,
         durationSeconds: p.duration_seconds,
         status: p.status || 'completed',
-        reps: p.reps || 0
+        reps: p.reps || 0,
+        details: p.details || '[]'
       };
       if (!log.id || !log.routineName || !log.startedAt || !log.endedAt) {
         throw new Error('Missing required workout fields');
@@ -45,7 +46,8 @@ function doGet(e) {
             new Date(Number(log.endedAt)),
             Number(log.durationSeconds),
             log.status,
-            Number(log.reps) || 0
+            Number(log.reps) || 0,
+            log.details
           ]);
         }
       } finally {
@@ -77,10 +79,11 @@ function readRows_(tabName) {
 }
 
 // Returns WorkoutLogs as normalized objects, with times in epoch milliseconds.
+// details is a JSON string of per-exercise totals, parsed on the device.
 function readWorkouts_() {
   const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('WorkoutLogs');
   if (!sheet || sheet.getLastRow() < 2) return [];
-  const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 7).getValues();
+  const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 8).getValues();
   return rows.filter(r => r[0] !== '').map(r => ({
     id: String(r[0]),
     routineName: String(r[1]),
@@ -88,7 +91,8 @@ function readWorkouts_() {
     endedAt: new Date(r[3]).getTime(),
     durationSeconds: Number(r[4]) || 0,
     status: String(r[5] || 'completed'),
-    reps: Number(r[6]) || 0
+    reps: Number(r[6]) || 0,
+    details: String(r[7] || '[]')
   }));
 }
 

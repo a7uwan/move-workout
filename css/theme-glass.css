@@ -1,0 +1,89 @@
+/* Glassmorphism theme. Loaded last so these rules override style.css and features.css. */
+
+:root{
+  --glass-fill:linear-gradient(135deg,rgba(255,255,255,.17) 0%,rgba(255,255,255,.05) 100%);
+  --glass-edge:rgba(255,255,255,.22);
+  --glass-shadow:0 10px 36px rgba(2,8,20,.42);
+  --glass-blur:blur(20px) saturate(170%);
+}
+
+/* Colour field behind the glass. Glass needs something behind it to look like glass. */
+body{
+  background:linear-gradient(135deg,#0d1b2a 0%,#1b2f45 48%,#12363a 100%);
+  background-attachment:fixed;
+}
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:-1;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 12% 8%,rgba(125,211,252,.35) 0,transparent 36%),
+    radial-gradient(circle at 92% 46%,rgba(110,231,183,.28) 0,transparent 34%),
+    radial-gradient(circle at 40% 96%,rgba(167,139,250,.22) 0,transparent 38%);
+}
+
+/* Panels */
+.glass,
+.calendar-card,
+.chart-card,
+.rep-picker,
+.routine-summary,
+.month-box,
+.hist-session,
+.history-item{
+  background:var(--glass-fill);
+  border:1px solid var(--glass-edge);
+  box-shadow:var(--glass-shadow),inset 0 1px 0 rgba(255,255,255,.28);
+  backdrop-filter:var(--glass-blur);
+  -webkit-backdrop-filter:var(--glass-blur);
+  border-radius:24px;
+}
+
+/* Small glass elements */
+.status-pill,
+.cal-nav,
+.cal-cell,
+.rep-chip,
+.dur-pill,
+.secondary-btn,
+.resume-bar,
+.toast{
+  backdrop-filter:blur(14px) saturate(160%);
+  -webkit-backdrop-filter:blur(14px) saturate(160%);
+}
+.cal-cell,.rep-chip,.cal-nav{background:rgba(255,255,255,.08)}
+.cal-cell.cal-has{background:rgba(110,231,183,.22)}
+.secondary-btn{background:rgba(255,255,255,.09)}
+
+/* Bottom menu and resume bar */
+.bottom-nav{
+  background:rgba(14,26,40,.45);
+  border:1px solid var(--glass-edge);
+  box-shadow:0 -8px 30px rgba(2,8,20,.35),inset 0 1px 0 rgba(255,255,255,.2);
+  backdrop-filter:blur(24px) saturate(180%);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+}
+@media(min-width:600px){.bottom-nav{border-radius:24px}}
+.resume-bar{background:rgba(20,36,52,.5)}
+
+/* Primary action: frosted green gradient */
+.primary-btn{
+  background:linear-gradient(135deg,rgba(110,231,183,.95) 0%,rgba(125,211,252,.85) 100%);
+  box-shadow:0 10px 28px rgba(110,231,183,.28),inset 0 1px 0 rgba(255,255,255,.45);
+  border-radius:18px;
+}
+.resume-btn{box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
+
+/* Timer ring: glass disc in the middle */
+.timer-ring:before{
+  background:rgba(255,255,255,.07);
+  border:1px solid var(--glass-edge);
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.2);
+}
+
+/* Toast: light glass */
+.toast{background:rgba(209,250,229,.82);box-shadow:0 8px 24px rgba(2,8,20,.3)}

@@ -6,6 +6,8 @@ let routineName = '';
 let lastStep = -1;
 let wakeLock = null;
 let audioCtx = null;
+let lastSnap = null;
+let currentItems = [];
 
 const DAY_MS = 86400000;
 
@@ -14,6 +16,7 @@ function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === id));
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('selected', b.dataset.view === id));
   window.scrollTo(0, 0);
+  refreshResumeBar();
 }
 
 function toast(message) {
@@ -85,12 +88,36 @@ function handleCue(type) {
 }
 
 /* ---------- Timer screen ---------- */
+
+// Shows a bar above the bottom menu while a routine is running and the timer screen is not open.
+function refreshResumeBar() {
+  const bar = $('resumeBar');
+  if (!bar || !lastSnap) return;
+  const running = lastSnap.phase !== 'done' && lastSnap.phase !== 'stopped';
+  const onTimer = $('timerView').classList.contains('active');
+  bar.hidden = !running || onTimer;
+  if (!bar.hidden) {
+    const name = lastSnap.phase === 'rest' ? 'Rest' : (lastSnap.current?.name || 'Workout');
+    $('resumeText').textContent = `${name} · ${lastSnap.phase === 'count' ? `${lastSnap.count}/${lastSnap.target}` : mmss(lastSnap.remaining)}`;
+  }
+}
 const mmss = sec => {
   const s = Math.max(0, Math.round(Number(sec) || 0));
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 };
 
+// Shows an exercise image from the sheet's Image_URL column. Hides the slot when there is no URL or the load fails.
+function setImage(id, url) {
+  const el = $(id);
+  if (!url) { el.hidden = true; el.removeAttribute('src'); return; }
+  el.onerror = () => { el.hidden = true; };
+  if (el.getAttribute('src') !== url) el.src = url;
+  el.hidden = false;
+}
+
 function renderTimer(s) {
+  lastSnap = s;
+  refreshResumeBar();
   const idle = s.phase === 'idle';
   const rest = s.phase === 'rest';
   const done = s.phase === 'done';
@@ -102,15 +129,23 @@ function renderTimer(s) {
     : `Exercise ${Math.min(s.index + 1, s.total)} of ${s.total} · Rep ${s.rep} of ${s.reps}`;
   $('exerciseName').textContent = rest ? 'Take a breath' : done ? 'Workout complete' : (s.current?.name || '');
   $('exerciseSide').textContent = idle ? 'Tap START TIMER when ready' : rest ? `Next: ${s.next?.name || 'finish'}` : (s.label || '');
-  $('timerDisplay').textContent = mmss(idle ? s.segSeconds : s.remaining);
+  const counting = s.phase === 'count';
+  $('timerDisplay').textContent = counting ? `${s.count} / ${s.target}` : mmss(idle ? s.segSeconds : s.remaining);
+  $('tapBtn').hidden = !counting;
   $('upNext').textContent = idle ? (s.current?.name || '') : (s.next?.name || 'Finish workout');
 
   const btn = $('pauseBtn');
   btn.textContent = idle ? 'START TIMER' : (done || stopped) ? 'DONE' : s.paused ? 'RESUME' : 'PAUSE';
-  btn.disabled = done || stopped;
+  btn.disabled = done || stopped || counting;
 
-  const pct = done ? 360 : (!idle && s.segSeconds) ? ((s.segSeconds - s.remaining) / s.segSeconds) * 360 : 0;
+  const pct = done ? 360 : counting ? (s.count / Math.max(1, s.target)) * 360 : (!idle && s.segSeconds) ? ((s.segSeconds - s.remaining) / s.segSeconds) * 360 : 0;
   $('timerRing').style.background = `conic-gradient(var(--green) ${pct}deg, rgba(255,255,255,.10) ${pct}deg)`;
+
+  // Images: the main slot shows the movement in progress (the next one during rest).
+  // The Up Next card shows the following movement, and only outside rest.
+  const finished = done || stopped;
+  setImage('currentImg', !finished && !idle ? (rest ? s.next?.image : s.current?.image) : (idle ? s.current?.image : ''));
+  setImage('nextImg', !finished && !rest && !idle ? s.next?.image : '');
 
   // Announce each new movement or rest once, when its step starts.
   if (!idle && !done && !stopped && s.stepIndex !== lastStep) {
@@ -125,6 +160,8 @@ function renderTimer(s) {
 function startWorkout({ name, items, reps }) {
   getAudio();
   chosenReps = reps;
+  currentItems = items;
+  $('summaryCard').hidden = true;
   routineName = name;
   lastStep = -1;
   showView('timerView');
@@ -138,6 +175,27 @@ function startWorkout({ name, items, reps }) {
   speak('Get into position');
 }
 
+/* ---------- Session summary (shown on the timer screen after a finished workout) ---------- */
+function showSummary(record) {
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const exercises = currentItems.length;
+  const rounds = exercises * chosenReps;
+  const tapped = currentItems.filter(i => i.side === 'Count').length;
+  const sec = Math.round(record.durationSeconds);
+  const time = sec >= 60 ? `${Math.floor(sec / 60)} min ${sec % 60} s` : `${sec} s`;
+  $('summaryCard').innerHTML = `
+    <div class="eyebrow">SESSION SUMMARY</div>
+    <h3>${esc(record.routineName)}</h3>
+    <div class="summary-grid">
+      <div><strong>${time}</strong><small>Total time</small></div>
+      <div><strong>${exercises}</strong><small>Exercises</small></div>
+      <div><strong>${rounds}</strong><small>Rounds (${chosenReps} each)</small></div>
+    </div>
+    ${tapped ? `<p class="summary-note">${tapped} exercise${tapped > 1 ? 's were' : ' was'} tap-counted.</p>` : ''}
+    <button class="primary-btn" id="summaryHistory">VIEW HISTORY <span>→</span></button>`;
+  $('summaryCard').hidden = false;
+}
+
 /* ---------- Saving a finished workout ---------- */
 async function finishWorkout(data) {
   const record = {
@@ -148,11 +206,12 @@ async function finishWorkout(data) {
     durationSeconds: Math.round((data.endedAt - data.startedAt) / 1000),
     reps: chosenReps,
     status: 'completed',
+    details: data.details || [],
     syncStatus: 'pending'
   };
   await MoveDB.saveWorkout(record);
   speak('Workout complete. Well done.');
-  showView('historyView');
+  showSummary(record);
   try {
     await MoveAPI.saveWorkout(record);
     await MoveDB.saveWorkout({ ...record, syncStatus: 'synced' });
@@ -243,9 +302,18 @@ function renderStats(logs) {
   $('streakValue').textContent = `${streak} ${streak === 1 ? 'day' : 'days'}`;
 }
 
+function renderHomeMonth(logs) {
+  const m = StatsView.monthSummary(logs);
+  const now = new Date();
+  $('monthLabel').textContent = now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }).toUpperCase();
+  $('monthWorkouts').textContent = `${m.count} ${m.count === 1 ? 'workout' : 'workouts'}`;
+  $('monthCompleted').textContent = `${m.count} · ${m.minutes} min`;
+}
+
 async function renderAll() {
   const logs = await MoveDB.getWorkouts();
   renderStats(logs);
+  renderHomeMonth(logs);
   StatsView.render(logs);
   HistoryView.render(logs);
 }
@@ -257,7 +325,8 @@ document.querySelectorAll('.nav-item').forEach(b => b.addEventListener('click', 
 }));
 $('openWorkouts').onclick = () => showView('workoutsView');
 $('startFeatured').onclick = () => showView('workoutsView');
-$('backHome').onclick = () => { WorkoutEngine.stop(); showView('workoutsView'); };
+$('backHome').onclick = () => showView('workoutsView'); // leaves the workout running
+$('resumeBtn').onclick = () => showView('timerView');
 $('pauseBtn').onclick = () => {
   const s = WorkoutEngine.state();
   if (s.phase === 'idle') WorkoutEngine.startCurrent();
@@ -265,6 +334,10 @@ $('pauseBtn').onclick = () => {
   else WorkoutEngine.pause();
 };
 $('skipBtn').onclick = () => WorkoutEngine.skip();
+$('tapBtn').onclick = () => WorkoutEngine.tap();
+$('summaryCard').addEventListener('click', e => {
+  if (e.target.closest('#summaryHistory')) showView('historyView');
+});
 $('endBtn').onclick = () => {
   if (confirm('End this workout now? It will not be counted as completed.')) {
     WorkoutEngine.stop();
@@ -278,7 +351,8 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) refr
 
 /* ---------- Start ---------- */
 RoutinesView.mount({ list: $('allRoutines'), detail: $('routineDetail') }, { onStart: startWorkout });
-StatsView.mount({ calendar: $('statsCalendar'), detail: $('statsDayDetail'), chart: $('statsChart') });
+StatsView.mount({ calendar: $('homeCalendar'), detail: $('homeDayDetail') });
+StatsView.mount({ calendar: $('statsCalendar'), detail: $('statsDayDetail'), chart: $('statsChart'), exercises: $('statsExercises') });
 HistoryView.mount($('historyList'));
 
 $('todayLabel').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase();

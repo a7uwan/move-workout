@@ -30,14 +30,16 @@ const RoutinesView = (() => {
       const name = String(r.Routine || '').trim();
       const exercise = String(r.Exercise || '').trim();
       if (!name || !exercise) continue;
-      const side = String(r.Side || 'None').trim().toUpperCase() === 'LR30' ? 'LR30' : 'None';
+      const rawSide = String(r.Side || 'None').trim().toUpperCase();
+      const side = rawSide === 'LR30' ? 'LR30' : rawSide === 'COUNT' ? 'Count' : 'None';
       const item = {
         order: Number(r.Order) || 0,
         name: exercise,
         duration: Math.max(1, Number(r.Duration_s) || 30),
         rest: Math.max(0, Number(r.Rest_s) || 0),
         side,
-        sideLabel: side === 'LR30' ? 'Right 30s · Left 30s' : 'Timed hold',
+        sideLabel: side === 'LR30' ? 'Right 30s · Left 30s' : side === 'Count' ? 'Tap each rep' : 'Timed hold',
+        target: Math.max(1, Number(r.Duration_s) || 100),
         reps: Math.max(1, Number(r.Reps) || 1),
         image: safeUrl(r.Image_URL),
         notes: String(r.Notes || '').trim()
@@ -80,7 +82,7 @@ const RoutinesView = (() => {
           : `<div class="ex-thumb ex-thumb-empty">${i + 1}</div>`}
         <div class="ex-info">
           <strong>${i + 1}. ${esc(ex.name)}</strong>
-          <small>${esc(ex.sideLabel)} · ${fmtTime(ex.duration)} · rest ${ex.rest} s</small>
+          <small>${esc(ex.sideLabel)} · ${ex.side === 'Count' ? `${ex.target} reps` : fmtTime(ex.duration)} · rest ${ex.rest} s</small>
           ${ex.notes ? `<small class="ex-notes">${esc(ex.notes)}</small>` : ''}
         </div>
       </article>`).join('');

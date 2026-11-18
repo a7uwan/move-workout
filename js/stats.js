@@ -1,13 +1,16 @@
-// Stats tab: monthly workout calendar, day detail list, and a weekly minutes chart.
+// Calendar and chart used on the Home and Stats tabs.
+// Each mount() call creates its own calendar with its own month and selected day.
 // Usage from app.js:
+//   StatsView.mount({ calendar: $('homeCalendar'), detail: $('homeDayDetail') });
 //   StatsView.mount({ calendar: $('statsCalendar'), detail: $('statsDayDetail'), chart: $('statsChart') });
-//   StatsView.render(logs);   // logs = array of workout records from MoveDB
+//   StatsView.render(logs);          // logs = array of workout records from MoveDB
+//   StatsView.monthSummary(logs);    // { count, minutes } for the current month
 const StatsView = (() => {
   const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const WEEKS_IN_CHART = 8;
 
   const pad = n => String(n).padStart(2, '0');
-  const esc = v => String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const keyOf = date => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
   const keyOfTs = ts => keyOf(new Date(ts));
   const sumSec = list => list.reduce((a, w) => a + (Number(w.durationSeconds) || 0), 0);
@@ -16,12 +19,15 @@ const StatsView = (() => {
     const s = Math.round(Number(sec) || 0);
     return `${Math.floor(s / 60)} min ${pad(s % 60)} s`;
   };
+  const inMonth = (ts, year, month) => {
+    const d = new Date(ts);
+    return d.getFullYear() === year && d.getMonth() === month;
+  };
 
   let logs = [];
-  let els = {};
-  let viewYear = new Date().getFullYear();
-  let viewMonth = new Date().getMonth();
-  let selectedKey = null;
+  const calendars = [];
+  let chartEl = null;
+  let exerciseEl = null;
 
   function groupByDay() {
     const map = {};
@@ -29,56 +35,122 @@ const StatsView = (() => {
     return map;
   }
 
-  function renderCalendar() {
-    const byDay = groupByDay();
-    const todayKey = keyOf(new Date());
-    const first = new Date(viewYear, viewMonth, 1);
-    const lead = (first.getDay() + 6) % 7; // Monday-first grid
-    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-    const title = first.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  // One calendar instance. Holds its own visible month and selected day.
+  function createCalendar(els) {
+    const now = new Date();
+    let viewYear = now.getFullYear();
+    let viewMonth = now.getMonth();
+    let selectedKey = null;
 
-    let cells = '';
-    for (let i = 0; i < lead; i++) cells += '<span></span>';
-    for (let d = 1; d <= daysInMonth; d++) {
-      const key = `${viewYear}-${pad(viewMonth + 1)}-${pad(d)}`;
-      const count = (byDay[key] || []).length;
-      const cls = ['cal-cell'];
-      if (count) cls.push('cal-has');
-      if (key === todayKey) cls.push('cal-today');
-      if (key === selectedKey) cls.push('cal-selected');
-      const label = `${key}: ${count} workout${count === 1 ? '' : 's'}`;
-      cells += `<button class="${cls.join(' ')}" data-key="${key}" aria-label="${label}">${d}${count > 1 ? `<i>${count}</i>` : ''}</button>`;
+    function renderCalendar() {
+      const byDay = groupByDay();
+      const todayKey = keyOf(new Date());
+      const first = new Date(viewYear, viewMonth, 1);
+      const lead = (first.getDay() + 6) % 7; // Monday-first grid
+      const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+      const title = first.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+      let cells = '';
+      for (let i = 0; i < lead; i++) cells += '<span></span>';
+      for (let d = 1; d <= daysInMonth; d++) {
+        const key = `${viewYear}-${pad(viewMonth + 1)}-${pad(d)}`;
+        const count = (byDay[key] || []).length;
+        const cls = ['cal-cell'];
+        if (count) cls.push('cal-has');
+        if (key === todayKey) cls.push('cal-today');
+        if (key === selectedKey) cls.push('cal-selected');
+        const label = `${key}: ${count} workout${count === 1 ? '' : 's'}`;
+        cells += `<button class="${cls.join(' ')}" data-key="${key}" aria-label="${label}">${d}${count > 1 ? `<i>${count}</i>` : ''}</button>`;
+      }
+
+      const monthLogs = logs.filter(w => inMonth(w.startedAt, viewYear, viewMonth));
+
+      els.calendar.innerHTML = `
+        <article class="glass calendar-card">
+          <div class="cal-head">
+            <button class="cal-nav" data-step="-1" aria-label="Previous month">‹</button>
+            <div class="cal-title"><strong>${title}</strong><small>${monthLogs.length} sessions · ${mins(sumSec(monthLogs))} min</small></div>
+            <button class="cal-nav" data-step="1" aria-label="Next month">›</button>
+          </div>
+          <div class="cal-grid cal-dow">${DOW.map(x => `<span>${x}</span>`).join('')}</div>
+          <div class="cal-grid">${cells}</div>
+        </article>`;
     }
 
-    const monthLogs = logs.filter(w => {
-      const d = new Date(w.startedAt);
-      return d.getFullYear() === viewYear && d.getMonth() === viewMonth;
+    function renderDetail() {
+      if (!els.detail) return;
+      if (!selectedKey) {
+        els.detail.innerHTML = '<p class="cal-hint">Tap a date in the calendar to see that day\'s sessions.</p>';
+        return;
+      }
+      const [y, m, d] = selectedKey.split('-').map(Number);
+      const title = new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      const list = (groupByDay()[selectedKey] || []).slice().sort((a, b) => a.startedAt - b.startedAt);
+      const items = list.length
+        ? list.map(w => `<article class="glass history-item"><strong>${esc(w.routineName)}</strong><small>${new Date(w.startedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })} · ${fmtDuration(w.durationSeconds)}</small></article>`).join('')
+        : '<article class="glass history-item"><strong>No workouts</strong><small>Nothing recorded on this day.</small></article>';
+      els.detail.innerHTML = `<div class="section-heading"><h3>${title}</h3></div>${items}`;
+    }
+
+    function refresh() {
+      renderCalendar();
+      renderDetail();
+    }
+
+    els.calendar.addEventListener('click', e => {
+      const nav = e.target.closest('.cal-nav');
+      if (nav) {
+        const d = new Date(viewYear, viewMonth + Number(nav.dataset.step), 1);
+        viewYear = d.getFullYear();
+        viewMonth = d.getMonth();
+        renderCalendar();
+        return;
+      }
+      const cell = e.target.closest('.cal-cell');
+      if (cell) {
+        // Tapping the selected date again clears the selection.
+        selectedKey = selectedKey === cell.dataset.key ? null : cell.dataset.key;
+        refresh();
+      }
     });
 
-    els.calendar.innerHTML = `
-      <article class="glass calendar-card">
-        <div class="cal-head">
-          <button class="cal-nav" data-step="-1" aria-label="Previous month">‹</button>
-          <div class="cal-title"><strong>${title}</strong><small>${monthLogs.length} sessions · ${mins(sumSec(monthLogs))} min</small></div>
-          <button class="cal-nav" data-step="1" aria-label="Next month">›</button>
-        </div>
-        <div class="cal-grid cal-dow">${DOW.map(x => `<span>${x}</span>`).join('')}</div>
-        <div class="cal-grid">${cells}</div>
-      </article>`;
+    return { refresh };
   }
 
-  function renderDetail() {
-    if (!selectedKey) {
-      els.detail.innerHTML = '<p class="cal-hint">Tap a date in the calendar to see that day\'s sessions.</p>';
+  function parseDetails(w) {
+    if (Array.isArray(w.details)) return w.details;
+    try { const v = JSON.parse(w.details || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; }
+  }
+
+  // Time and session count per exercise across all completed workouts.
+  function renderExercises() {
+    if (!exerciseEl) return;
+    const agg = {};
+    for (const w of logs) {
+      for (const d of parseDetails(w)) {
+        const name = String(d.name || 'Unnamed');
+        const a = (agg[name] ||= { name, seconds: 0, taps: 0, sessions: 0 });
+        a.seconds += Number(d.seconds) || 0;
+        a.taps += Number(d.taps) || 0;
+        a.sessions++;
+      }
+    }
+    const rows = Object.values(agg).sort((a, b) => (b.seconds - a.seconds) || (b.taps - a.taps));
+    if (!rows.length) {
+      exerciseEl.innerHTML = '<article class="glass chart-card"><div class="eyebrow">TIME PER EXERCISE</div><p class="cal-hint">Finish a workout to see time per exercise.</p></article>';
       return;
     }
-    const [y, m, d] = selectedKey.split('-').map(Number);
-    const title = new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    const list = (groupByDay()[selectedKey] || []).slice().sort((a, b) => a.startedAt - b.startedAt);
-    const items = list.length
-      ? list.map(w => `<article class="glass history-item"><strong>${esc(w.routineName)}</strong><small>${new Date(w.startedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })} · ${fmtDuration(w.durationSeconds)}</small></article>`).join('')
-      : '<article class="glass history-item"><strong>No workouts</strong><small>Nothing recorded on this day.</small></article>';
-    els.detail.innerHTML = `<div class="section-heading"><h3>${title}</h3></div>${items}`;
+    const maxSec = Math.max(1, ...rows.map(r => r.seconds));
+    const items = rows.map(r => {
+      const pct = Math.round((r.seconds / maxSec) * 100);
+      const value = r.seconds ? fmtDuration(r.seconds) : `${r.taps} taps`;
+      return `<div class="ex-bar-row">
+        <div class="ex-bar-label"><strong>${esc(r.name)}</strong><small>${r.sessions} ${r.sessions === 1 ? 'session' : 'sessions'}</small></div>
+        <span class="ex-bar-value">${value}</span>
+        <div class="ex-bar-track"><div class="ex-bar-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    }).join('');
+    exerciseEl.innerHTML = `<article class="glass chart-card"><div class="eyebrow">TIME PER EXERCISE · ALL SESSIONS</div><div class="ex-bars">${items}</div></article>`;
   }
 
   function weekStart(date) {
@@ -88,6 +160,7 @@ const StatsView = (() => {
   }
 
   function renderChart() {
+    if (!chartEl) return;
     const thisWeek = weekStart(new Date());
     const buckets = [];
     for (let i = WEEKS_IN_CHART - 1; i >= 0; i--) {
@@ -109,7 +182,7 @@ const StatsView = (() => {
       return `<rect class="bar" x="${x}" y="${base - h}" width="${barW}" height="${h}" rx="5"><title>${b.label}: ${b.count} sessions, ${b.minutes} min</title></rect>${value}<text x="${x + barW / 2}" y="${H - 10}" text-anchor="middle">${b.label}</text>`;
     }).join('');
 
-    els.chart.innerHTML = `
+    chartEl.innerHTML = `
       <article class="glass chart-card">
         <div class="eyebrow">MINUTES PER WEEK · LAST ${WEEKS_IN_CHART} WEEKS</div>
         <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Workout minutes per week">
@@ -119,34 +192,26 @@ const StatsView = (() => {
       </article>`;
   }
 
+  // elements: { calendar, detail?, chart? }. Call once per calendar on the page.
+  function mount(elements) {
+    if (elements.calendar) calendars.push(createCalendar(elements));
+    if (elements.chart) chartEl = elements.chart;
+    if (elements.exercises) exerciseEl = elements.exercises;
+  }
+
   function render(newLogs) {
     logs = Array.isArray(newLogs) ? newLogs : [];
-    if (!els.calendar) return;
-    renderCalendar();
-    renderDetail();
+    calendars.forEach(c => c.refresh());
     renderChart();
+    renderExercises();
   }
 
-  function mount(elements) {
-    els = elements;
-    els.calendar.addEventListener('click', e => {
-      const nav = e.target.closest('.cal-nav');
-      if (nav) {
-        const d = new Date(viewYear, viewMonth + Number(nav.dataset.step), 1);
-        viewYear = d.getFullYear();
-        viewMonth = d.getMonth();
-        renderCalendar();
-        return;
-      }
-      const cell = e.target.closest('.cal-cell');
-      if (cell) {
-        // Tapping the selected date again clears the selection.
-        selectedKey = selectedKey === cell.dataset.key ? null : cell.dataset.key;
-        renderCalendar();
-        renderDetail();
-      }
-    });
+  // Sessions and minutes for the current calendar month.
+  function monthSummary(newLogs) {
+    const now = new Date();
+    const list = (newLogs || []).filter(w => inMonth(w.startedAt, now.getFullYear(), now.getMonth()));
+    return { count: list.length, minutes: mins(sumSec(list)) };
   }
 
-  return { mount, render };
+  return { mount, render, monthSummary };
 })();
