@@ -4,6 +4,8 @@ const $ = id => document.getElementById(id);
 let chosenReps = 0;
 let routineName = '';
 let lastStep = -1;
+let sessionStartTs = 0;
+let elapsedTicker = null;
 let wakeLock = null;
 let audioCtx = null;
 let lastSnap = null;
@@ -60,27 +62,30 @@ function getAudio() {
   return audioCtx;
 }
 
-// A silent oscillator keeps the audio session active during a workout, so the page is less likely to be suspended
-// when the screen locks. Released when the workout ends.
-let keepAliveOsc = null;
+// Keep-alive: a silent AudioContext buffer source replays every 25 s to prevent the browser
+// suspending the page. We use a zero-gain GainNode so it makes no sound and does NOT take
+// the system audio focus away from Spotify or any other external player.
+let keepAliveTimer = null;
 function keepAudioAlive() {
-  const c = getAudio();
-  if (!c || keepAliveOsc) return;
-  try {
-    const o = c.createOscillator();
-    const g = c.createGain();
-    g.gain.value = 0.0001;
-    o.connect(g);
-    g.connect(c.destination);
-    o.start();
-    keepAliveOsc = o;
-  } catch (err) {
-    console.warn('MOVE keep-alive failed:', err.message);
-  }
+  if (keepAliveTimer) return;
+  keepAliveTimer = setInterval(() => {
+    try {
+      const c = getAudio();
+      if (!c) return;
+      const buf = c.createBuffer(1, 1, c.sampleRate);
+      const src = c.createBufferSource();
+      const g = c.createGain();
+      g.gain.value = 0;        // truly silent: no audio focus stolen
+      src.buffer = buf;
+      src.connect(g);
+      g.connect(c.destination);
+      src.start();
+    } catch (_) {}
+  }, 25000);
 }
 function releaseAudio() {
-  try { keepAliveOsc?.stop(); } catch (_) {}
-  keepAliveOsc = null;
+  clearInterval(keepAliveTimer);
+  keepAliveTimer = null;
 }
 
 function beep() {
@@ -209,6 +214,12 @@ function startWorkout({ name, items, reps }) {
   chosenReps = reps;
   currentItems = items;
   $('summaryCard').hidden = true;
+  sessionStartTs = Date.now();
+  clearInterval(elapsedTicker);
+  elapsedTicker = setInterval(() => {
+    const el = $('sessionElapsed');
+    if (el) el.textContent = mmss(Math.floor((Date.now() - sessionStartTs) / 1000));
+  }, 1000);
   routineName = name;
   lastStep = -1;
   showView('timerView');
@@ -257,6 +268,7 @@ async function finishWorkout(data) {
     syncStatus: 'pending'
   };
   await MoveDB.saveWorkout(record);
+  clearInterval(elapsedTicker);
   releaseAudio();
   speak('Workout complete. Well done.');
   showSummary(record);
@@ -355,11 +367,19 @@ function calcStreak(logs) {
   return streak;
 }
 
+let statsYear = new Date().getFullYear();
+let statsMonth = new Date().getMonth();
+
 function renderStats(logs) {
   const weekLogs = logs.filter(x => x.startedAt >= startOfWeek(Date.now()));
   const streak = calcStreak(logs);
-  $('totalSessions').textContent = logs.length;
-  $('totalMinutes').textContent = `${Math.round(sumSeconds(logs) / 60)} min`;
+  // Top summary cards filter to the month currently shown in the Stats calendar.
+  const m = StatsView.monthSummary(logs, statsYear, statsMonth);
+  const mLabel = new Date(statsYear, statsMonth, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  $('totalSessions').textContent = m.count;
+  $('totalSessions').closest('article').querySelector('small').textContent = `Workouts in ${mLabel}`;
+  $('totalMinutes').textContent = `${m.minutes} min`;
+  $('totalMinutes').closest('article').querySelector('small').textContent = `Minutes in ${mLabel}`;
   $('weekMinutes').textContent = `${Math.round(sumSeconds(weekLogs) / 60)} min`;
   $('weeklySessions').textContent = `${weekLogs.length} ${weekLogs.length === 1 ? 'workout' : 'workouts'}`;
   $('streakValue').textContent = `${streak} ${streak === 1 ? 'day' : 'days'}`;
@@ -447,14 +467,75 @@ $('tapBtn').onclick = () => WorkoutEngine.tap();
 $('summaryCard').addEventListener('click', e => {
   if (e.target.closest('#summaryHistory')) showView('historyView');
 });
-$('endBtn').onclick = () => {
-  if (confirm('End this workout now? It will not be counted as completed.')) {
+$('endBtn').onclick = async () => {
+  if (confirm('End workout and save it as a completed session?')) {
+    clearInterval(elapsedTicker);
     WorkoutEngine.stop();
-    showView('workoutsView');
     releaseAudio();
-    toast('Workout ended');
+    const now = Date.now();
+    const record = {
+      id: crypto.randomUUID(),
+      routineName,
+      startedAt: sessionStartTs || now,
+      endedAt: now,
+      durationSeconds: Math.round((now - (sessionStartTs || now)) / 1000),
+      reps: chosenReps,
+      status: 'completed',
+      details: [],
+      syncStatus: 'pending'
+    };
+    await MoveDB.saveWorkout(record);
+    showSummary(record);
+    try {
+      await MoveAPI.saveWorkout(record);
+      await MoveDB.saveWorkout({ ...record, syncStatus: 'synced' });
+      toast('Workout saved to Google Sheets');
+    } catch (err) {
+      toast('Saved on this device · cloud sync pending');
+    }
+    await refreshData();
   }
 };
+/* ---------- Pull-to-refresh ---------- */
+(function () {
+  let startY = 0, pulling = false;
+  const THRESHOLD = 72;
+  const indicator = document.createElement('div');
+  indicator.id = 'pullIndicator';
+  indicator.textContent = '↓ Pull to refresh';
+  document.querySelector('.app-shell').prepend(indicator);
+
+  document.addEventListener('touchstart', e => {
+    if (window.scrollY === 0) { startY = e.touches[0].clientY; pulling = true; }
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if (!pulling) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy > 0) {
+      const pct = Math.min(dy / THRESHOLD, 1);
+      indicator.style.opacity = pct;
+      indicator.style.transform = `translateY(${Math.min(dy * 0.4, 32)}px)`;
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', e => {
+    if (!pulling) return;
+    pulling = false;
+    const dy = e.changedTouches[0].clientY - startY;
+    indicator.style.opacity = '0';
+    indicator.style.transform = '';
+    if (dy >= THRESHOLD) {
+      indicator.textContent = '↻ Syncing…';
+      indicator.style.opacity = '1';
+      refreshData().then(() => {
+        indicator.textContent = '↓ Pull to refresh';
+        indicator.style.opacity = '0';
+      });
+    }
+  }, { passive: true });
+}());
+
 window.addEventListener('online', () => { setStatus('Online'); refreshData(); });
 window.addEventListener('offline', () => setStatus('Offline'));
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshData(); });
@@ -462,8 +543,19 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) refr
 /* ---------- Start ---------- */
 RoutinesView.mount({ list: $('allRoutines'), detail: $('routineDetail') }, { onStart: startWorkout });
 StatsView.mount({ calendar: $('homeCalendar'), detail: $('homeDayDetail') });
-StatsView.mount({ calendar: $('statsCalendar'), detail: $('statsDayDetail'), chart: $('statsChart'), exercises: $('statsExercises') });
-HistoryView.mount($('historyList'));
+StatsView.mount({
+  calendar: $('statsCalendar'),
+  detail: $('statsDayDetail'),
+  chart: $('statsChart'),
+  exercises: $('statsExercises'),
+  onMonthChange: async (year, month) => {
+    statsYear = year;
+    statsMonth = month;
+    const logs = await MoveDB.getWorkouts();
+    renderStats(logs);
+  }
+});
+HistoryView.mount($('historyList'), { onDelete: renderAll });
 
 $('todayLabel').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase();
 setStatus(navigator.onLine ? 'Ready' : 'Offline');

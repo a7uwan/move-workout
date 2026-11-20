@@ -1,7 +1,7 @@
-// History tab: completed sessions grouped by month. Each month header shows its session count
-// and total minutes. Each session shows its duration as a pill and a bar scaled to the longest session.
+// History tab: completed sessions grouped by month, with delete button on each entry.
 const HistoryView = (() => {
   let el = null;
+  let onDelete = () => {};
 
   const pad = n => String(n).padStart(2, '0');
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -17,8 +17,18 @@ const HistoryView = (() => {
     return r ? `${m} min ${pad(r)} s` : `${m} min`;
   };
 
-  function mount(container) {
+  function mount(container, handlers = {}) {
     el = container;
+    onDelete = handlers.onDelete || (() => {});
+    el.addEventListener('click', async e => {
+      const btn = e.target.closest('.del-btn');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      if (!id) return;
+      if (!confirm('Remove this session from history?')) return;
+      await MoveDB.deleteWorkout(id);
+      onDelete();
+    });
   }
 
   function render(logs) {
@@ -51,7 +61,10 @@ const HistoryView = (() => {
         return `<article class="glass hist-session">
           <div class="hist-top">
             <div><strong>${esc(w.routineName)}</strong><small>${date} · ${time}${reps}${sync}</small></div>
-            <span class="dur-pill">${fmtDuration(sec)}</span>
+            <div class="hist-top-right">
+              <span class="dur-pill">${fmtDuration(sec)}</span>
+              <button class="del-btn" data-id="${esc(w.id)}" aria-label="Delete this session">✕</button>
+            </div>
           </div>
           <div class="dur-track"><div class="dur-fill" style="width:${pct}%"></div></div>
         </article>`;

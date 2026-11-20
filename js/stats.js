@@ -1,10 +1,6 @@
 // Calendar and chart used on the Home and Stats tabs.
-// Each mount() call creates its own calendar with its own month and selected day.
-// Usage from app.js:
-//   StatsView.mount({ calendar: $('homeCalendar'), detail: $('homeDayDetail') });
-//   StatsView.mount({ calendar: $('statsCalendar'), detail: $('statsDayDetail'), chart: $('statsChart') });
-//   StatsView.render(logs);          // logs = array of workout records from MoveDB
-//   StatsView.monthSummary(logs);    // { count, minutes } for the current month
+// Each mount() call creates its own calendar instance with its own visible month and selected day.
+// Stats calendar exposes onMonthChange so app.js can filter summary cards to match.
 const StatsView = (() => {
   const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const WEEKS_IN_CHART = 8;
@@ -36,7 +32,8 @@ const StatsView = (() => {
   }
 
   // One calendar instance. Holds its own visible month and selected day.
-  function createCalendar(els) {
+  // opts.onMonthChange(year, month) is called whenever the user navigates months.
+  function createCalendar(els, opts = {}) {
     const now = new Date();
     let viewYear = now.getFullYear();
     let viewMonth = now.getMonth();
@@ -46,7 +43,7 @@ const StatsView = (() => {
       const byDay = groupByDay();
       const todayKey = keyOf(new Date());
       const first = new Date(viewYear, viewMonth, 1);
-      const lead = (first.getDay() + 6) % 7; // Monday-first grid
+      const lead = (first.getDay() + 6) % 7;
       const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
       const title = first.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
@@ -104,11 +101,11 @@ const StatsView = (() => {
         viewYear = d.getFullYear();
         viewMonth = d.getMonth();
         renderCalendar();
+        if (opts.onMonthChange) opts.onMonthChange(viewYear, viewMonth);
         return;
       }
       const cell = e.target.closest('.cal-cell');
       if (cell) {
-        // Tapping the selected date again clears the selection.
         selectedKey = selectedKey === cell.dataset.key ? null : cell.dataset.key;
         refresh();
       }
@@ -122,7 +119,6 @@ const StatsView = (() => {
     try { const v = JSON.parse(w.details || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; }
   }
 
-  // Time and session count per exercise across all completed workouts.
   function renderExercises() {
     if (!exerciseEl) return;
     const agg = {};
@@ -192,9 +188,9 @@ const StatsView = (() => {
       </article>`;
   }
 
-  // elements: { calendar, detail?, chart? }. Call once per calendar on the page.
+  // elements: { calendar, detail?, chart?, exercises?, onMonthChange? }
   function mount(elements) {
-    if (elements.calendar) calendars.push(createCalendar(elements));
+    if (elements.calendar) calendars.push(createCalendar(elements, { onMonthChange: elements.onMonthChange }));
     if (elements.chart) chartEl = elements.chart;
     if (elements.exercises) exerciseEl = elements.exercises;
   }
@@ -206,10 +202,12 @@ const StatsView = (() => {
     renderExercises();
   }
 
-  // Sessions and minutes for the current calendar month.
-  function monthSummary(newLogs) {
+  // Sessions and minutes for a given month (defaults to current month).
+  function monthSummary(newLogs, year, month) {
     const now = new Date();
-    const list = (newLogs || []).filter(w => inMonth(w.startedAt, now.getFullYear(), now.getMonth()));
+    const y = year !== undefined ? year : now.getFullYear();
+    const m = month !== undefined ? month : now.getMonth();
+    const list = (newLogs || []).filter(w => inMonth(w.startedAt, y, m));
     return { count: list.length, minutes: mins(sumSec(list)) };
   }
 

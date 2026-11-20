@@ -158,7 +158,11 @@ const RoutinesView = (() => {
       }
       if (e.target.closest('#routineStart') && selectedReps) {
         const r = routines[selectedName];
-        if (r) onStart({ name: r.name, items: r.items, reps: selectedReps });
+        if (r) {
+          // Rep picker value overrides sheet Reps for every exercise in this session.
+          const items = r.items.map(ex => ({ ...ex, reps: 0 }));
+          onStart({ name: r.name, items, reps: selectedReps });
+        }
       }
     });
   }

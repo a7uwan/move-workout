@@ -26,5 +26,14 @@ const MoveDB = (() => {
       req.onerror = () => reject(req.error);
     });
   }
-  return {saveWorkout,getWorkouts};
+  async function deleteWorkout(id) {
+    const db = await open();
+    return new Promise((resolve,reject) => {
+      const tx = db.transaction(STORE,'readwrite');
+      tx.objectStore(STORE).delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+  return {saveWorkout,getWorkouts,deleteWorkout};
 })();
