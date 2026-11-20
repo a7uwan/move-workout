@@ -1,8 +1,7 @@
 // History tab: completed sessions grouped by month. Each month header shows its session count
-// and total minutes. Each session shows its duration as a pill, a delete pill button, and a bar.
+// and total minutes. Each session shows its duration as a pill and a bar scaled to the longest session.
 const HistoryView = (() => {
   let el = null;
-  let onDelete = () => {};
 
   const pad = n => String(n).padStart(2, '0');
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -18,17 +17,8 @@ const HistoryView = (() => {
     return r ? `${m} min ${pad(r)} s` : `${m} min`;
   };
 
-  function mount(container, opts = {}) {
+  function mount(container) {
     el = container;
-    if (opts.onDelete) onDelete = opts.onDelete;
-    if (el) {
-      el.addEventListener('click', e => {
-        const btn = e.target.closest('.del-pill');
-        if (!btn) return;
-        const id = btn.dataset.id;
-        if (id && confirm('Delete this workout log?')) onDelete(id);
-      });
-    }
   }
 
   function render(logs) {
@@ -61,10 +51,7 @@ const HistoryView = (() => {
         return `<article class="glass hist-session">
           <div class="hist-top">
             <div><strong>${esc(w.routineName)}</strong><small>${date} · ${time}${reps}${sync}</small></div>
-            <div class="hist-pills">
-              <span class="dur-pill">${fmtDuration(sec)}</span>
-              <button type="button" class="del-pill" data-id="${esc(w.id)}" aria-label="Delete log">Delete</button>
-            </div>
+            <span class="dur-pill">${fmtDuration(sec)}</span>
           </div>
           <div class="dur-track"><div class="dur-fill" style="width:${pct}%"></div></div>
         </article>`;

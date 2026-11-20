@@ -1,18 +1,6 @@
 // Small IndexedDB wrapper: workout history stays on this device when offline.
 const MoveDB = (() => {
   const DB_NAME = 'move-workout-db', STORE = 'workouts';
-  const DELETED_KEY = 'move-deleted-ids';
-
-  function getDeletedIds() {
-    try { return new Set(JSON.parse(localStorage.getItem(DELETED_KEY) || '[]')); }
-    catch (_) { return new Set(); }
-  }
-  function markDeleted(id) {
-    const set = getDeletedIds();
-    set.add(id);
-    localStorage.setItem(DELETED_KEY, JSON.stringify([...set]));
-  }
-
   function open() {
     return new Promise((resolve,reject) => {
       const request = indexedDB.open(DB_NAME,1);
@@ -22,22 +10,11 @@ const MoveDB = (() => {
     });
   }
   async function saveWorkout(record) {
-    if (getDeletedIds().has(record.id)) return record;
     const db = await open();
     return new Promise((resolve,reject) => {
       const tx = db.transaction(STORE,'readwrite');
       tx.objectStore(STORE).put(record);
       tx.oncomplete = () => resolve(record);
-      tx.onerror = () => reject(tx.error);
-    });
-  }
-  async function deleteWorkout(id) {
-    markDeleted(id);
-    const db = await open();
-    return new Promise((resolve,reject) => {
-      const tx = db.transaction(STORE,'readwrite');
-      tx.objectStore(STORE).delete(id);
-      tx.oncomplete = () => resolve(true);
       tx.onerror = () => reject(tx.error);
     });
   }
@@ -49,5 +26,5 @@ const MoveDB = (() => {
       req.onerror = () => reject(req.error);
     });
   }
-  return { saveWorkout, deleteWorkout, getWorkouts, getDeletedIds };
+  return {saveWorkout,getWorkouts};
 })();

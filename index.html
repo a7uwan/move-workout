@@ -15,11 +15,7 @@
   <title>MOVE — Personal Workout</title>
 </head>
 <body>
-  <div id="ptrIndicator" class="ptr-indicator" aria-hidden="true">
-    <span id="ptrText">↓ Pull to sync</span>
-  </div>
-
-  <main class="app-shell" id="appShell">
+  <main class="app-shell">
     <header class="topbar">
       <div><div class="eyebrow">YOUR PERSONAL WORKOUT SPACE</div><h1>MOVE<span>.</span></h1></div>
       <div class="status-pill"><i></i><span id="connectionStatus">Ready</span></div>
@@ -63,25 +59,12 @@
       <h2 id="exerciseName" class="exercise-name">Get into position</h2>
       <p id="exerciseSide" class="exercise-side">Tap START TIMER when ready</p>
       <div class="timer-ring" id="timerRing"><div><strong id="timerDisplay">00:00</strong><small>REMAINING</small></div></div>
+      <div class="up-next glass"><img id="nextImg" class="next-img" alt="" hidden><div><small>UP NEXT</small><strong id="upNext"></strong></div><span>↗</span></div>
       <button class="primary-btn tap-btn" id="tapBtn" hidden>TAP +1 REP</button>
-
-      <!-- Floating Workout Dock: Up Next, Elapsed Session Timer, Skip, Pause, End -->
-      <div id="floatingTimerDock" class="floating-timer-dock glass">
-        <div class="dock-top">
-          <div class="dock-next">
-            <img id="nextImg" class="next-img" alt="" hidden>
-            <div><small>UP NEXT</small><strong id="upNext"></strong></div>
-          </div>
-          <div class="dock-elapsed">
-            <small>SESSION</small>
-            <strong id="sessionElapsed">00:00</strong>
-          </div>
-        </div>
-        <div class="timer-controls dock-controls">
-          <button class="secondary-btn" id="skipBtn">SKIP ↠</button>
-          <button class="primary-btn pause-btn" id="pauseBtn">START TIMER</button>
-          <button class="secondary-btn end-btn" id="endBtn">END</button>
-        </div>
+      <div class="timer-controls">
+        <button class="secondary-btn" id="skipBtn">SKIP ↠</button>
+        <button class="primary-btn pause-btn" id="pauseBtn">START TIMER</button>
+        <button class="secondary-btn" id="endBtn">END</button>
       </div>
     </section>
 
