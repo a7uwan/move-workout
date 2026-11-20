@@ -29,8 +29,9 @@ const WorkoutEngine = (() => {
   function buildSegments(items, repsOverride) {
     const out = [];
     items.forEach((ex, i) => {
-      // Sheet Reps wins when set. A blank Reps cell uses the rep picker value.
-      const reps = Number(ex.reps) > 0 ? Number(ex.reps) : Math.max(1, Number(repsOverride) || 1);
+      // User's selected rep count (1-20) determines how many rounds/reps are carried out;
+      // falls back to Column G (ex.reps) only if no selection was provided.
+      const reps = Number(repsOverride) > 0 ? Math.round(Number(repsOverride)) : Math.max(1, Number(ex.reps) || 1);
       for (let k = 1; k <= reps; k++) {
         const base = { ex: i, rep: k, reps };
         if (ex.side === 'Count') {
@@ -54,6 +55,11 @@ const WorkoutEngine = (() => {
     return buildSegments(items, repsOverride).reduce((sum, s) => sum + s.seconds, 0);
   }
 
+  function getElapsedSeconds() {
+    if (phase === 'idle' || !startedAt) return 0;
+    return Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+  }
+
   function snapshot() {
     const seg = segs[segIdx];
     const nextSeg = segs.slice(segIdx + 1).find(s => s.type !== 'rest');
@@ -67,6 +73,7 @@ const WorkoutEngine = (() => {
       current: routine[seg ? seg.ex : 0] || null,
       next: nextSeg ? routine[nextSeg.ex] : null,
       remaining: phase === 'idle' ? (seg ? seg.seconds : 0) : (phase === 'done' || phase === 'stopped') ? 0 : remaining,
+      elapsedSeconds: getElapsedSeconds(),
       segSeconds: seg ? seg.seconds : 0,
       count,
       target: seg && seg.target ? seg.target : 0,
@@ -78,7 +85,6 @@ const WorkoutEngine = (() => {
 
   function notify() { onUpdate(snapshot()); }
 
-  // t0 is the start time of this segment. Passing the previous segment's end keeps timing exact after catch-up.
   function begin(i, t0 = Date.now()) {
     segIdx = i;
     const seg = segs[i];
@@ -99,7 +105,25 @@ const WorkoutEngine = (() => {
     paused = true;
     remaining = 0;
     notify();
-    onFinish({ startedAt, endedAt: Date.now(), routineName, details: Object.values(detailMap) });
+    onFinish({ startedAt: startedAt || Date.now(), endedAt: Date.now(), routineName, details: Object.values(detailMap) });
+  }
+
+  // Ends the session early and records progress as 1 completed workout log.
+  function finishEarly() {
+    if (phase === 'done' || phase === 'stopped') return;
+    const seg = segs[segIdx];
+    if (seg && seg.type !== 'rest' && phase !== 'idle') {
+      const item = routine[seg.ex];
+      const d = (detailMap[seg.ex] ||= { name: item ? item.name : '', seconds: 0, taps: 0 });
+      if (seg.type === 'count') {
+        d.taps += count;
+      } else {
+        const doneSec = Math.max(0, seg.seconds - remaining);
+        d.seconds += doneSec;
+      }
+    }
+    if (phase === 'idle') startedAt = Date.now();
+    finish();
   }
 
   // Adds a finished segment to the per-exercise totals. Skipped segments are not counted.
@@ -120,8 +144,17 @@ const WorkoutEngine = (() => {
     if (!ticker) ticker = setInterval(tick, 200);
   }
 
+  let lastElapsed = -1;
   function tick() {
-    if (paused || phase === 'idle' || phase === 'done' || phase === 'stopped' || phase === 'count') return;
+    if (phase === 'idle' || phase === 'done' || phase === 'stopped') return;
+
+    const el = getElapsedSeconds();
+    if (el !== lastElapsed) {
+      lastElapsed = el;
+      if (paused || phase === 'count') notify();
+    }
+
+    if (paused || phase === 'count') return;
     const seg = segs[segIdx];
     const left = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
 
@@ -129,7 +162,6 @@ const WorkoutEngine = (() => {
       lastLeft = left;
       remaining = left;
       const next = segs[segIdx + 1];
-      // No beep between the Right and Left halves of the same round.
       const newMovement = next && !(next.ex === seg.ex && next.rep === seg.rep);
       if (next && next.type !== 'rest' && newMovement && left >= 1 && left <= BEEP_FROM) {
         onCue('beep', { remaining: left });
@@ -143,11 +175,10 @@ const WorkoutEngine = (() => {
     if (left <= 0) {
       markDone(seg);
       advanceSeg(endAt);
-      tick(); // handles any segments that also ended while the page was in the background
+      tick();
     }
   }
 
-  // Prepares the routine. Nothing runs until startCurrent() is called.
   function start(items, opts = {}) {
     clearInterval(ticker);
     ticker = null;
@@ -160,7 +191,8 @@ const WorkoutEngine = (() => {
     count = 0;
     remaining = segs[0] ? segs[0].seconds : 0;
     paused = true;
-    startedAt = Date.now();
+    startedAt = 0;
+    lastElapsed = -1;
     onUpdate = opts.onUpdate || (() => {});
     onFinish = opts.onFinish || (() => {});
     onCue = opts.onCue || (() => {});
@@ -194,7 +226,6 @@ const WorkoutEngine = (() => {
     notify();
   }
 
-  // One tap = one rep. Reaching the target moves to the next round.
   function tap() {
     if (phase !== 'count') return;
     count++;
@@ -221,8 +252,7 @@ const WorkoutEngine = (() => {
 
   function state() { return snapshot(); }
 
-  // Call when the page becomes visible again. Timers that were throttled or frozen while locked catch up here.
   function catchUp() { tick(); }
 
-  return { start, startCurrent, pause, resume, skip, stop, tap, state, plannedSeconds, catchUp };
+  return { start, startCurrent, pause, resume, skip, stop, finishEarly, tap, state, plannedSeconds, catchUp };
 })();
