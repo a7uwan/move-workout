@@ -2,10 +2,10 @@
 // Sheet format, one row per exercise:
 //   Routine | Order | Exercise | Duration_s | Rest_s | Side | Reps | Image_URL | Notes
 // Side: LR30 (Right 30s / Left 30s, Duration_s is the total for both sides) or None (timed hold).
-// Reps in the sheet is the default. The rep picker on this tab overrides it for the session.
+// Selecting a rep count (1-20) on this tab sets the actual number of reps/rounds carried out for every exercise.
 const RoutinesView = (() => {
   const CACHE_KEY = 'move-routines-cache';
-  const REP_CHOICES = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20];
+  const REP_CHOICES = Array.from({ length: 20 }, (_, i) => i + 1);
 
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const safeUrl = u => (/^https?:\/\//i.test(String(u || '').trim()) ? String(u).trim() : '');
@@ -40,7 +40,7 @@ const RoutinesView = (() => {
         side,
         sideLabel: side === 'LR30' ? 'Right 30s · Left 30s' : side === 'Count' ? 'Tap each rep' : 'Timed hold',
         target: Math.max(1, Number(r.Duration_s) || 100),
-        reps: Number(r.Reps) > 0 ? Math.round(Number(r.Reps)) : 0, // 0 = use the rep picker
+        reps: Number(r.Reps) > 0 ? Math.round(Number(r.Reps)) : 0,
         image: safeUrl(r.Image_URL),
         notes: String(r.Notes || '').trim()
       };
@@ -75,24 +75,29 @@ const RoutinesView = (() => {
     const lrCount = r.items.filter(i => i.side === 'LR30').length;
     const timedCount = r.items.length - lrCount;
 
-    const rows = r.items.map((ex, i) => `
+    const rows = r.items.map((ex, i) => {
+      const roundLabel = selectedReps > 0
+        ? ` · ${selectedReps} ${selectedReps === 1 ? 'rep' : 'reps'}`
+        : (ex.reps ? ` · default ${ex.reps}` : '');
+      return `
       <article class="glass ex-row">
         ${ex.image
           ? `<img class="ex-thumb" src="${esc(ex.image)}" alt="" loading="lazy">`
           : `<div class="ex-thumb ex-thumb-empty">${i + 1}</div>`}
         <div class="ex-info">
           <strong>${i + 1}. ${esc(ex.name)}</strong>
-          <small>${esc(ex.sideLabel)} · ${ex.side === 'Count' ? `${ex.target} reps` : fmtTime(ex.duration)} · rest ${ex.rest} s${ex.reps ? ` · ${ex.reps} rounds` : ' · picker rounds'}</small>
+          <small>${esc(ex.sideLabel)} · ${ex.side === 'Count' ? `${ex.target} taps` : fmtTime(ex.duration)} · rest ${ex.rest} s${roundLabel}</small>
           ${ex.notes ? `<small class="ex-notes">${esc(ex.notes)}</small>` : ''}
         </div>
-      </article>`).join('');
+      </article>`;
+    }).join('');
 
     const chips = REP_CHOICES.map(n =>
       `<button class="rep-chip${n === selectedReps ? ' selected' : ''}" data-reps="${n}">${n}</button>`).join('');
 
     const total = selectedReps
       ? `Estimated total: ${fmtTime(WorkoutEngine.plannedSeconds(r.items, selectedReps))}`
-      : 'Choose reps to see the estimated total.';
+      : 'Choose reps (1–20) to see the estimated total.';
 
     els.detail.innerHTML = `
       <article class="glass routine-summary">
