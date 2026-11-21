@@ -10,7 +10,9 @@ const StatsView = (() => {
   const keyOf = date => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
   const keyOfTs = ts => keyOf(new Date(ts));
   const sumSec = list => list.reduce((a, w) => a + (Number(w.durationSeconds) || 0), 0);
-  const mins = sec => Math.round((Number(sec) || 0) / 60);
+  // Returns "Xh Ym" when >= 60 min, else "Y min".
+  const fmtMins = totalSec => { const m = Math.round(Number(totalSec) / 60); if (m >= 60) { const h = Math.floor(m/60), r = m%60; return r ? `${h}h ${r}m` : `${h}h`; } return `${m} min`; };
+  const mins = totalSec => Math.round(Number(totalSec) / 60); // kept for chart buckets (numeric)
   const fmtDuration = sec => {
     const s = Math.round(Number(sec) || 0);
     return `${Math.floor(s / 60)} min ${pad(s % 60)} s`;
@@ -69,7 +71,7 @@ const StatsView = (() => {
         <article class="glass calendar-card">
           <div class="cal-head">
             <button class="cal-nav" data-step="-1" aria-label="Previous month">‹</button>
-            <div class="cal-title"><strong>${title}</strong><small>${monthLogs.length} sessions · ${mins(sumSec(monthLogs))} min</small></div>
+            <div class="cal-title"><strong>${title}</strong><small>${monthLogs.length} sessions · ${fmtMins(sumSec(monthLogs))}</small></div>
             <button class="cal-nav" data-step="1" aria-label="Next month">›</button>
           </div>
           <div class="cal-grid cal-dow">${DOW.map(x => `<span>${x}</span>`).join('')}</div>
@@ -190,7 +192,7 @@ const StatsView = (() => {
       const h = Math.round((b.minutes / max) * (base - top));
       const x = i * slot + (slot - barW) / 2;
       const value = b.minutes ? `<text class="bar-val" x="${x + barW / 2}" y="${base - h - 5}" text-anchor="middle">${b.minutes}</text>` : '';
-      return `<rect class="bar" x="${x}" y="${base - h}" width="${barW}" height="${h}" rx="5"><title>${b.label}: ${b.count} sessions, ${b.minutes} min</title></rect>${value}<text x="${x + barW / 2}" y="${H - 10}" text-anchor="middle">${b.label}</text>`;
+      return `<rect class="bar" x="${x}" y="${base - h}" width="${barW}" height="${h}" rx="5"><title>${b.label}: ${b.count} sessions, ${fmtMins(b.minutes * 60)}</title></rect>${value}<text x="${x + barW / 2}" y="${H - 10}" text-anchor="middle">${b.label}</text>`;
     }).join('');
 
     chartEl.innerHTML = `
@@ -224,7 +226,7 @@ const StatsView = (() => {
     const y = year !== undefined ? year : now.getFullYear();
     const m = month !== undefined ? month : now.getMonth();
     const list = (newLogs || []).filter(w => inMonth(w.startedAt, y, m));
-    return { count: list.length, minutes: mins(sumSec(list)) };
+    return { count: list.length, minutes: mins(sumSec(list)), formatted: fmtMins(sumSec(list)) };
   }
 
   function setStatsMonth(year, month) {

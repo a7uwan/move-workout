@@ -339,7 +339,9 @@ function showSummary(record) {
   const rounds = currentItems.reduce((sum, i) => sum + (i.reps > 0 ? i.reps : chosenReps), 0);
   const tapped = currentItems.filter(i => i.side === 'Count').length;
   const sec = Math.round(record.durationSeconds);
-  const time = sec >= 60 ? `${Math.floor(sec / 60)} min ${sec % 60} s` : `${sec} s`;
+  const time = sec >= 3600
+    ? `${Math.floor(sec / 3600)}h ${Math.floor((sec % 3600) / 60)}m ${sec % 60}s`
+    : sec >= 60 ? `${Math.floor(sec / 60)} min ${sec % 60} s` : `${sec} s`;
   $('summaryCard').innerHTML = `
     <div class="eyebrow">SESSION SUMMARY</div>
     <h3>${esc(record.routineName)}</h3>
@@ -466,9 +468,9 @@ async function loadRoutines() {
   prefetchImages({ ...routines, ...custom });
   const first = Object.values(routines)[0];
   if (first) {
-    const min = Math.round(WorkoutEngine.plannedSeconds(first.items, 1) / 60);
+    
     $('featuredName').textContent = first.name;
-    $('featuredMeta').textContent = `${first.items.length} exercises · about ${min} min at 1 rep each`;
+    $('featuredMeta').textContent = `${first.items.length} exercises · about ${fmtMins(WorkoutEngine.plannedSeconds(first.items, 1))} at 1 rep each`;
   }
 }
 
@@ -491,6 +493,16 @@ function startOfDay(ts) { const d = new Date(ts); d.setHours(0, 0, 0, 0); return
 function addDays(ts, n) { const d = new Date(ts); d.setDate(d.getDate() + n); d.setHours(0, 0, 0, 0); return d.getTime(); }
 function startOfWeek(ts) { const d = new Date(startOfDay(ts)); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); }
 function sumSeconds(list) { return list.reduce((a, x) => a + (Number(x.durationSeconds) || 0), 0); }
+// Formats a total-seconds value as "Xh Ym" when >= 1 hour, else "Y min".
+function fmtMins(totalSec) {
+  const m = Math.round(Number(totalSec) / 60);
+  if (m >= 60) {
+    const h = Math.floor(m / 60);
+    const rem = m % 60;
+    return rem ? `${h}h ${rem}m` : `${h}h`;
+  }
+  return `${m} min`;
+}
 
 function calcStreak(logs) {
   const days = new Set(logs.map(x => startOfDay(x.startedAt)));
@@ -528,7 +540,7 @@ function renderYearStats(logs) {
   const yEl = $('yearSessions');
   const ymEl = $('yearMinutes');
   if (yEl) yEl.textContent = yearLogs.length;
-  if (ymEl) ymEl.textContent = `${Math.round(sumSeconds(yearLogs) / 60)} min`;
+  if (ymEl) ymEl.textContent = fmtMins(sumSeconds(yearLogs));
   if (yEl) yEl.closest('article').querySelector('small').textContent = `Workouts in ${statsSelectedYear}`;
   if (ymEl) ymEl.closest('article').querySelector('small').textContent = `Minutes in ${statsSelectedYear}`;
 }
@@ -540,9 +552,9 @@ function renderStats(logs) {
   const mLabel = new Date(statsYear, statsMonth, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   $('totalSessions').textContent = m.count;
   $('totalSessions').closest('article').querySelector('small').textContent = `Workouts in ${mLabel}`;
-  $('totalMinutes').textContent = `${m.minutes} min`;
+  $('totalMinutes').textContent = fmtMins(m.minutes * 60);
   $('totalMinutes').closest('article').querySelector('small').textContent = `Minutes in ${mLabel}`;
-  $('weekMinutes').textContent = `${Math.round(sumSeconds(weekLogs) / 60)} min`;
+  $('weekMinutes').textContent = fmtMins(sumSeconds(weekLogs));
   $('weeklySessions').textContent = `${weekLogs.length} ${weekLogs.length === 1 ? 'workout' : 'workouts'}`;
   $('streakValue').textContent = `${streak} ${streak === 1 ? 'day' : 'days'}`;
   renderYearStats(logs);
@@ -554,7 +566,7 @@ function renderHomeMonth(logs) {
   const now = new Date();
   $('monthLabel').textContent = now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }).toUpperCase();
   $('monthWorkouts').textContent = `${m.count} ${m.count === 1 ? 'workout' : 'workouts'}`;
-  $('monthCompleted').textContent = `${m.count} · ${m.minutes} min`;
+  $('monthCompleted').textContent = `${m.count} · ${fmtMins(m.minutes * 60)}`;
 }
 
 /* ---------- Streak reminders and app badge ---------- */

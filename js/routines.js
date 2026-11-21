@@ -11,10 +11,14 @@ const RoutinesView = (() => {
   const safeUrl = u => (/^https?:\/\//i.test(String(u || '').trim()) ? String(u).trim() : '');
   const fmtTime = sec => {
     const s = Math.round(Number(sec) || 0);
-    const m = Math.floor(s / 60);
+    const totalMin = Math.floor(s / 60);
     const r = s % 60;
-    if (!m) return `${r} s`;
-    return r ? `${m} min ${r} s` : `${m} min`;
+    if (!totalMin) return `${r} s`;
+    if (totalMin >= 60) {
+      const h = Math.floor(totalMin / 60), m = totalMin % 60;
+      return m ? `${h}h ${m}m ${r}s` : `${h}h ${r}s`;
+    }
+    return r ? `${totalMin} min ${r} s` : `${totalMin} min`;
   };
 
   let routines = {};        // name -> { name, items }

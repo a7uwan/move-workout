@@ -11,10 +11,20 @@ const HistoryView = (() => {
   };
   const fmtDuration = sec => {
     const s = Math.round(Number(sec) || 0);
-    const m = Math.floor(s / 60);
+    const totalMin = Math.floor(s / 60);
     const r = s % 60;
-    if (!m) return `${r} s`;
-    return r ? `${m} min ${pad(r)} s` : `${m} min`;
+    if (!totalMin) return `${r} s`;
+    if (totalMin >= 60) {
+      const h = Math.floor(totalMin / 60);
+      const m = totalMin % 60;
+      return m ? `${h}h ${m}m ${pad(r)}s` : `${h}h ${pad(r)}s`;
+    }
+    return r ? `${totalMin} min ${pad(r)} s` : `${totalMin} min`;
+  };
+  // Format minutes (not seconds) with hour conversion.
+  const fmtMinsVal = totalMin => {
+    if (totalMin >= 60) { const h = Math.floor(totalMin/60), m = totalMin%60; return m ? `${h}h ${m}m` : `${h}h`; }
+    return `${totalMin} min`;
   };
 
   function mount(container, handlers = {}) {
@@ -83,7 +93,7 @@ const HistoryView = (() => {
 
       return `<section class="hist-month">
         <div class="hist-month-head">
-          <div><strong>${title}</strong><small>${count} ${count === 1 ? 'session' : 'sessions'} · ${Math.round(totalSec / 60)} min total</small></div>
+          <div><strong>${title}</strong><small>${count} ${count === 1 ? 'session' : 'sessions'} · ${fmtMinsVal(Math.round(totalSec / 60))} total</small></div>
         </div>
         ${items}
       </section>`;
