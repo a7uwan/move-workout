@@ -126,19 +126,22 @@
     </section>
 
     <div id="resumeBar" class="resume-bar glass" hidden>
-      <div class="resume-bar-info">
+      <!-- Tapping the info area returns to timerView -->
+      <div class="resume-bar-info" id="resumeBarTap">
         <div class="resume-bar-row1">
-          <span class="resume-label">IN PROGRESS</span>
-          <span id="resumeElapsed" class="resume-elapsed">&#x23F1; 00:00</span>
+          <span class="resume-label">WORKOUT IN PROGRESS</span>
         </div>
         <strong id="resumeExName" class="resume-ex-name"></strong>
-        <span id="resumeRemaining" class="resume-remaining"></span>
+        <div class="resume-times">
+          <span class="resume-time-item"><small>ELAPSED</small><strong id="resumeElapsed">00:00</strong></span>
+          <span class="resume-time-sep">|</span>
+          <span class="resume-time-item"><small>LEFT</small><strong id="resumeRemaining">00:00</strong></span>
+        </div>
       </div>
       <div class="resume-controls">
-        <button class="resume-mini" id="resumePauseBtn">⏸</button>
-        <button class="resume-mini" id="resumeSkipBtn">↠</button>
-        <button class="resume-mini red" id="resumeEndBtn">■</button>
-        <button class="resume-mini green" id="resumeBtn">BACK</button>
+        <button class="resume-mini" id="resumePauseBtn" aria-label="Pause/Resume">⏸</button>
+        <button class="resume-mini" id="resumeSkipBtn" aria-label="Skip">↠</button>
+        <button class="resume-mini red" id="resumeEndBtn" aria-label="End">■</button>
       </div>
     </div>
 

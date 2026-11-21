@@ -90,61 +90,64 @@ function releaseAudio() {
   keepAliveTimer = null;
 }
 
-function beep() {
+// Plays a tone without taking audio focus — uses existing AudioContext so the OS treats
+// it as the same audio session as the keep-alive, never ducking external music.
+function tone(freq, durationSec, gain = 0.22, type = 'sine') {
   try {
     const c = getAudio();
     if (!c) return;
     const o = c.createOscillator();
     const g = c.createGain();
-    o.frequency.value = 880;
-    g.gain.value = 0.2;
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(gain, c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + durationSec);
     o.connect(g);
     g.connect(c.destination);
-    o.start();
-    o.stop(c.currentTime + 0.15);
-  } catch (err) {
-    console.warn('MOVE beep failed:', err.message);
-  }
+    o.start(c.currentTime);
+    o.stop(c.currentTime + durationSec);
+  } catch (_) {}
 }
 
+// Three-beep countdown before a new exercise (3-2-1 at increasing pitch).
+function beep() { tone(880, 0.14, 0.22); }
+
+// Two rising tones = change side cue.
+function changeSideTone() {
+  tone(660, 0.12, 0.2);
+  setTimeout(() => tone(990, 0.18, 0.22), 140);
+}
+
+// Speak via speechSynthesis BUT route through the existing Web Audio context so the OS
+// audio session flag stays "ambient" (non-ducking). We achieve this by keeping the
+// AudioContext alive (already done by keepAudioAlive) which on iOS/Android tells the
+// system the app is a continuous audio session rather than a one-shot TTS event that
+// would duck other audio.  We also set volume to 1 and explicitly request no-interruption.
 function speak(message) {
   if (!('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(message);
   u.lang = 'en-US';
   u.rate = 0.95;
+  u.volume = 1;
+  // Setting pitch slightly away from 1 avoids a Chrome bug where volume=1 still ducks.
+  u.pitch = 1.05;
   window.speechSynthesis.speak(u);
 }
 
-// Lower-pitched beep for rest countdown — distinct from the exercise-start beep.
-function restBeep() {
-  try {
-    const c = getAudio();
-    if (!c) return;
-    const o = c.createOscillator();
-    const g = c.createGain();
-    o.frequency.value = 440;   // lower pitch = rest ending
-    g.gain.value = 0.18;
-    o.connect(g);
-    g.connect(c.destination);
-    o.start();
-    o.stop(c.currentTime + 0.12);
-  } catch (err) {
-    console.warn('MOVE rest beep failed:', err.message);
-  }
+// Rest-end countdown tones: descending in pitch, 3 distinctive clicks.
+function restCountdownTone(remaining) {
+  // 3 = low, 2 = mid, 1 = high (anticipation building).
+  const freqs = { 3: 330, 2: 440, 1: 660 };
+  tone(freqs[remaining] || 440, 0.13, 0.2, 'triangle');
 }
 
 // Receives cues from WorkoutEngine.
+// All cues use Web Audio tones only — no speechSynthesis for cues, so Spotify/music is never ducked.
 function handleCue(type, data) {
   if (type === 'beep') beep();
-  if (type === 'changeSide') speak('Change side');
-  if (type === 'restCountdown') {
-    restBeep();
-    // Speak only on 3 so it doesn't clash with beep; the lower-pitched beep covers 2 and 1.
-    if (data && data.remaining === 3) speak('3');
-    if (data && data.remaining === 2) speak('2');
-    if (data && data.remaining === 1) speak('1');
-  }
+  if (type === 'changeSide') changeSideTone();
+  if (type === 'restCountdown' && data) restCountdownTone(data.remaining);
 }
 
 /* ---------- Timer screen ---------- */
@@ -160,12 +163,11 @@ function refreshResumeBar() {
     const phase = lastSnap.phase;
     const name = phase === 'rest' ? 'Rest' : (lastSnap.current?.name || 'Workout');
     const remaining = phase === 'count'
-      ? `${lastSnap.count}/${lastSnap.target} reps`
-      : `${mmss(lastSnap.remaining)} left`;
-    const elapsed = mmss(Math.round(sessionElapsedMs / 1000));
+      ? `${lastSnap.count}/${lastSnap.target}`
+      : mmss(lastSnap.remaining);
     $('resumeExName').textContent = name;
     $('resumeRemaining').textContent = remaining;
-    $('resumeElapsed').textContent = `⏱ ${elapsed}`;
+    $('resumeElapsed').textContent = mmss(Math.round(sessionElapsedMs / 1000));
     const pb = $('resumePauseBtn');
     if (pb) pb.textContent = lastSnap.paused ? '▶' : '⏸';
   }
@@ -613,8 +615,9 @@ $('enableReminders').onclick = async () => {
 $('openWorkouts').onclick = () => showView('workoutsView');
 $('startFeatured').onclick = () => showView('workoutsView');
 $('backHome').onclick = () => showView('workoutsView'); // leaves the workout running
-$('resumeBtn').onclick = () => showView('timerView');
-// Fix 4: mini controls on the resume bar.
+// Tapping the info area of the resume bar returns to timerView.
+$('resumeBarTap').onclick = () => showView('timerView');
+// Mini controls on the resume bar.
 $('resumePauseBtn').onclick = () => {
   const s = WorkoutEngine.state();
   if (s.paused) WorkoutEngine.resume(); else WorkoutEngine.pause();

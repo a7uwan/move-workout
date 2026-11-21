@@ -137,18 +137,20 @@
 
 /* Resume bar: shown while a routine runs and the timer screen is closed */
 [hidden]{display:none!important}
-/* Fix 4: resume bar with inline controls, sits just above bottom-nav */
-.resume-bar{position:fixed;z-index:11;left:50%;transform:translateX(-50%);bottom:calc(64px + env(safe-area-inset-bottom));width:min(calc(100% - 24px),540px);padding:10px 12px;display:flex;align-items:center;gap:8px}
-.resume-bar-info{flex:1;min-width:0}
-.resume-bar-row1{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
-.resume-label{font-size:9px;letter-spacing:1.5px;color:var(--muted);font-weight:700}
-.resume-elapsed{font-size:11px;color:var(--green);font-weight:700;font-variant-numeric:tabular-nums}
-.resume-ex-name{display:block;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.resume-remaining{display:block;font-size:11px;color:var(--muted);margin-top:2px}
-.resume-controls{display:flex;gap:6px;flex-shrink:0;align-items:center}
-.resume-mini{background:rgba(255,255,255,.12);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:7px 10px;font-size:12px;font-weight:700;white-space:nowrap}
-.resume-mini.green{background:var(--green);color:#08251d;border-color:var(--green)}
-.resume-mini.red{background:rgba(255,80,80,.2);border-color:rgba(255,80,80,.4);color:#ff8080}
+/* Resume bar: taller, no BACK pill, tap info area to return */
+.resume-bar{position:fixed;z-index:11;left:50%;transform:translateX(-50%);bottom:calc(64px + env(safe-area-inset-bottom));width:min(calc(100% - 20px),540px);padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer}
+.resume-bar-info{flex:1;min-width:0;cursor:pointer}
+.resume-bar-row1{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.resume-label{font-size:9px;letter-spacing:1.6px;color:var(--muted);font-weight:700}
+.resume-ex-name{display:block;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px}
+.resume-times{display:flex;align-items:center;gap:10px}
+.resume-time-item{display:flex;flex-direction:column;gap:1px}
+.resume-time-item small{font-size:8px;letter-spacing:1.2px;color:var(--muted)}
+.resume-time-item strong{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text)}
+.resume-time-sep{color:var(--line);font-size:16px;line-height:1}
+.resume-elapsed,.resume-remaining{display:block;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums}
+.resume-controls{display:flex;gap:7px;flex-shrink:0;align-items:center}
+.resume-mini{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.12);color:var(--text);border-radius:12px;padding:9px 13px;font-size:14px;font-weight:700;white-space:nowrap;cursor:pointer}
 /* Home: this-month summary box */
 .month-box{padding:18px;margin-bottom:14px}
 .month-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}

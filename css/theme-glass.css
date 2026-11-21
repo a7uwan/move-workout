@@ -1,30 +1,49 @@
-/* Glassmorphism theme. Loaded last so these rules override style.css and features.css. */
+/* MOVE glassmorphism theme — reference: dark matte dashboard with neon accent pills */
 
-:root{
-  --glass-fill:linear-gradient(135deg,rgba(255,255,255,.17) 0%,rgba(255,255,255,.05) 100%);
-  --glass-edge:rgba(255,255,255,.22);
-  --glass-shadow:0 10px 36px rgba(2,8,20,.42);
-  --glass-blur:blur(20px) saturate(170%);
+:root {
+  /* Base palette */
+  --bg:        #0d0f10;
+  --surface:   #16181a;
+  --panel:     rgba(255,255,255,.055);
+  --line:      rgba(255,255,255,.10);
+  --muted:     #7a8491;
+  --text:      #e8ecf0;
+
+  /* Neon accents */
+  --green:     #c4f035;   /* neon lime – primary action / progress */
+  --cyan:      #2de2e6;   /* electric cyan – secondary / badges */
+  --amber:     #f6c445;   /* warm amber – highlights */
+  --red-soft:  #ff6b6b;   /* soft red – end / danger */
+
+  /* Glass tokens */
+  --glass-fill:   rgba(22,24,26,.72);
+  --glass-edge:   rgba(255,255,255,.10);
+  --glass-top:    rgba(255,255,255,.18);  /* specular top border */
+  --glass-shadow: 0 8px 32px rgba(0,0,0,.55);
+  --glass-blur:   blur(18px) saturate(140%);
 }
 
-/* Colour field behind the glass. Glass needs something behind it to look like glass. */
-body{
-  background:linear-gradient(135deg,#0d1b2a 0%,#1b2f45 48%,#12363a 100%);
-  background-attachment:fixed;
+/* ── Base layer ──────────────────────────────────────────── */
+body {
+  background: var(--bg);
+  background-attachment: fixed;
+  color: var(--text);
 }
-body::before{
-  content:"";
-  position:fixed;
-  inset:0;
-  z-index:-1;
-  pointer-events:none;
+
+/* Ambient radial glows – olive-lime top-left, teal centre-right, amber bottom */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
   background:
-    radial-gradient(circle at 12% 8%,rgba(125,211,252,.35) 0,transparent 36%),
-    radial-gradient(circle at 92% 46%,rgba(110,231,183,.28) 0,transparent 34%),
-    radial-gradient(circle at 40% 96%,rgba(167,139,250,.22) 0,transparent 38%);
+    radial-gradient(ellipse 55% 38% at 8%  6%,  rgba(196,240,53,.13)  0, transparent 100%),
+    radial-gradient(ellipse 50% 42% at 95% 40%,  rgba(45,226,230,.10)  0, transparent 100%),
+    radial-gradient(ellipse 45% 35% at 50% 95%,  rgba(246,196,69,.09)  0, transparent 100%);
 }
 
-/* Panels */
+/* ── Glass cards ─────────────────────────────────────────── */
 .glass,
 .calendar-card,
 .chart-card,
@@ -32,58 +51,147 @@ body::before{
 .routine-summary,
 .month-box,
 .hist-session,
-.history-item{
-  background:var(--glass-fill);
-  border:1px solid var(--glass-edge);
-  box-shadow:var(--glass-shadow),inset 0 1px 0 rgba(255,255,255,.28);
-  backdrop-filter:var(--glass-blur);
-  -webkit-backdrop-filter:var(--glass-blur);
-  border-radius:24px;
+.history-item {
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-edge);
+  border-top-color: var(--glass-top);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-radius: 20px;
 }
 
-/* Small glass elements */
+/* ── Small glass chips / pills ───────────────────────────── */
 .status-pill,
 .cal-nav,
 .cal-cell,
 .rep-chip,
-.dur-pill,
 .secondary-btn,
 .resume-bar,
-.toast{
-  backdrop-filter:blur(14px) saturate(160%);
-  -webkit-backdrop-filter:blur(14px) saturate(160%);
+.year-select,
+.builder-select,
+.builder-input {
+  backdrop-filter: blur(12px) saturate(130%);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
 }
-.cal-cell,.rep-chip,.cal-nav{background:rgba(255,255,255,.08)}
-.cal-cell.cal-has{background:rgba(110,231,183,.22)}
-.secondary-btn{background:rgba(255,255,255,.09)}
+.cal-cell, .rep-chip, .cal-nav { background: rgba(255,255,255,.07); border-color: var(--line); }
+.cal-cell.cal-has { background: rgba(196,240,53,.18); border-color: rgba(196,240,53,.5); color: var(--green); }
+.cal-cell.cal-selected { background: var(--green); border-color: var(--green); color: #0d0f10; }
+.cal-cell.cal-today { box-shadow: inset 0 0 0 1px var(--cyan); }
+.rep-chip.selected { background: var(--green); border-color: var(--green); color: #0d0f10; }
+.secondary-btn { background: rgba(255,255,255,.08); border-color: var(--line); color: var(--text); }
+.secondary-btn:active { background: rgba(255,255,255,.14); }
 
-/* Bottom menu and resume bar */
-.bottom-nav{
-  background:rgba(14,26,40,.45);
-  border:1px solid var(--glass-edge);
-  box-shadow:0 -8px 30px rgba(2,8,20,.35),inset 0 1px 0 rgba(255,255,255,.2);
-  backdrop-filter:blur(24px) saturate(180%);
-  -webkit-backdrop-filter:blur(24px) saturate(180%);
-}
-@media(min-width:600px){.bottom-nav{border-radius:24px}}
-.resume-bar{background:rgba(20,36,52,.5)}
-
-/* Primary action: frosted green gradient */
-.primary-btn{
-  background:linear-gradient(135deg,rgba(110,231,183,.95) 0%,rgba(125,211,252,.85) 100%);
-  box-shadow:0 10px 28px rgba(110,231,183,.28),inset 0 1px 0 rgba(255,255,255,.45);
-  border-radius:18px;
-}
-.resume-btn{box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
-
-/* Timer ring: glass disc in the middle */
-.timer-ring:before{
-  background:rgba(255,255,255,.07);
-  border:1px solid var(--glass-edge);
-  backdrop-filter:blur(16px);
-  -webkit-backdrop-filter:blur(16px);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.2);
+/* ── Duration / stat pills ───────────────────────────────── */
+.dur-pill {
+  background: rgba(45,226,230,.14);
+  border: 1px solid rgba(45,226,230,.38);
+  color: var(--cyan);
 }
 
-/* Toast: light glass */
-.toast{background:rgba(209,250,229,.82);box-shadow:0 8px 24px rgba(2,8,20,.3)}
+/* ── Progress / bar fills ────────────────────────────────── */
+.dur-fill,
+.timer-bar-fill,
+.ex-bar-fill {
+  background: linear-gradient(90deg, var(--green) 0%, var(--cyan) 100%);
+}
+
+/* Chart bars: rounded capsule style */
+.chart-card .bar { fill: var(--green); opacity: .9; }
+.chart-card .bar-val { fill: var(--text); }
+.chart-card text { fill: var(--muted); }
+
+/* ── Bottom navigation ───────────────────────────────────── */
+.bottom-nav {
+  background: rgba(13,15,16,.88);
+  border-top: 1px solid var(--glass-edge);
+  border-left: none; border-right: none; border-bottom: none;
+  box-shadow: 0 -4px 24px rgba(0,0,0,.45);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+}
+@media(min-width:600px) { .bottom-nav { border: 1px solid var(--glass-edge); border-radius: 20px; } }
+
+/* ── Primary action button ───────────────────────────────── */
+.primary-btn {
+  background: var(--green);
+  color: #0d0f10;
+  font-weight: 800;
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(196,240,53,.35);
+  border: none;
+}
+.primary-btn:active { background: #aad620; box-shadow: none; }
+.primary-btn:disabled { opacity: .32; box-shadow: none; }
+
+/* ── Resume / floating bar ───────────────────────────────── */
+.resume-bar {
+  background: rgba(16,18,20,.82);
+  border: 1px solid var(--glass-edge);
+  border-top-color: var(--glass-top);
+  box-shadow: 0 -4px 28px rgba(0,0,0,.5);
+}
+.resume-mini {
+  background: rgba(255,255,255,.10);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 10px;
+}
+.resume-mini:active { background: rgba(255,255,255,.18); }
+.resume-mini.red { background: rgba(255,107,107,.18); border-color: rgba(255,107,107,.4); color: var(--red-soft); }
+
+/* ── Timer bar ───────────────────────────────────────────── */
+.timer-bar-track { background: rgba(255,255,255,.08); }
+.timer-bar-label strong { color: var(--text); }
+
+/* ── Float controls backdrop ─────────────────────────────── */
+.float-controls {
+  background: linear-gradient(to top, rgba(13,15,16,.97) 60%, transparent 100%) !important;
+}
+
+/* ── Topbar eyebrow / H1 ─────────────────────────────────── */
+.topbar h1 span { color: var(--green); }
+.nav-item.selected { color: var(--green); }
+.text-btn, .back-btn { color: var(--green); }
+.status-pill i { background: var(--cyan); }
+
+/* ── Stat cards ──────────────────────────────────────────── */
+.stat-card strong { color: var(--text); }
+.stat-icon { filter: none; }
+.streak-icon { color: var(--amber); }
+
+/* ── Featured card ───────────────────────────────────────── */
+.featured {
+  background: linear-gradient(135deg,
+    rgba(196,240,53,.10) 0%,
+    rgba(45,226,230,.07) 60%,
+    rgba(22,24,26,.6) 100%);
+  border-top-color: rgba(196,240,53,.25);
+}
+
+/* ── History session bars ────────────────────────────────── */
+.dur-track { background: rgba(255,255,255,.07); }
+.hist-time { color: var(--cyan); }
+
+/* ── Toast ───────────────────────────────────────────────── */
+.toast {
+  background: rgba(196,240,53,.15);
+  border: 1px solid rgba(196,240,53,.35);
+  color: var(--green);
+  box-shadow: 0 4px 20px rgba(0,0,0,.4);
+}
+
+/* ── Delete button ───────────────────────────────────────── */
+.del-btn { color: var(--red-soft); background: rgba(255,107,107,.12); border-color: rgba(255,107,107,.3); }
+
+/* ── Builder inputs ──────────────────────────────────────── */
+.builder-input:focus { border-color: var(--green); }
+
+/* ── Theme chips active ──────────────────────────────────── */
+.theme-chip.selected { border-color: var(--cyan); background: rgba(45,226,230,.12); }
+
+/* ── Calendar nav active ─────────────────────────────────── */
+.cal-nav:active { background: rgba(196,240,53,.2); color: var(--green); }
+
+/* ── Rep picker total text ───────────────────────────────── */
+.rep-total { color: var(--cyan); }
