@@ -1,7 +1,7 @@
 // MOVE API client. JSONP avoids browser CORS preflight for Apps Script ContentService.
 // Each action uses its own token: saveWorkout uses WRITE_TOKEN, everything else uses READ_TOKEN.
 const MoveAPI = (() => {
-  const WRITE_ACTIONS = new Set(['saveWorkout', 'deleteWorkout']);
+  const WRITE_ACTIONS = new Set(['saveWorkout', 'deleteWorkout', 'saveRoutineRows', 'deleteRoutine']);
 
   function isPlaceholder(v) {
     return !v || String(v).includes('PASTE_');
@@ -52,6 +52,15 @@ const MoveAPI = (() => {
     ping: () => request({action: 'ping'}),
     getRoutines: () => request({action: 'routines'}),
     getWorkouts: () => request({action: 'workouts'}),
+    saveRoutineRows: (routineName, rows) => request({
+      action: 'saveRoutineRows',
+      routine_name: routineName,
+      rows: JSON.stringify(rows)
+    }),
+    deleteRoutine: routineName => request({
+      action: 'deleteRoutine',
+      routine_name: routineName
+    }),
     deleteWorkout: id => request({
       action: 'deleteWorkout',
       log_id: String(id)

@@ -153,14 +153,24 @@ const RoutinesView = (() => {
       const chip = e.target.closest('.rep-chip');
       if (chip) {
         selectedReps = Number(chip.dataset.reps);
-        // Fix 5: update chips selection and recalculate total without full re-render.
+        // Fix 3: always update chip highlight + recalculate estimated total.
         els.detail.querySelectorAll('.rep-chip').forEach(c =>
           c.classList.toggle('selected', Number(c.dataset.reps) === selectedReps));
         const r = routines[selectedName];
-        const totalEl = els.detail.querySelector('.rep-total');
+        // Always recalculate, whether or not the element already existed.
+        let totalEl = els.detail.querySelector('.rep-total');
+        if (!totalEl) {
+          // First click: insert the total paragraph before the start button.
+          const startBtn = els.detail.querySelector('#routineStart');
+          if (startBtn) {
+            totalEl = document.createElement('p');
+            totalEl.className = 'rep-total';
+            startBtn.parentNode.insertBefore(totalEl, startBtn);
+          }
+        }
+        if (r && totalEl) totalEl.textContent = `Estimated total: ${fmtTime(WorkoutEngine.plannedSeconds(r.items, selectedReps))}`;
         const startBtn = els.detail.querySelector('#routineStart');
         const hintEl = els.detail.querySelector('.rep-hint');
-        if (r && totalEl) totalEl.textContent = `Estimated total: ${fmtTime(WorkoutEngine.plannedSeconds(r.items, selectedReps))}`;
         if (startBtn) startBtn.disabled = false;
         if (hintEl) hintEl.remove();
         return;

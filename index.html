@@ -99,8 +99,16 @@
     </section>
 
     <div id="resumeBar" class="resume-bar glass" hidden>
-      <div><small>WORKOUT IN PROGRESS</small><strong id="resumeText"></strong></div>
-      <button class="resume-btn" id="resumeBtn">BACK TO WORKOUT ↗</button>
+      <div class="resume-bar-info">
+        <small>WORKOUT IN PROGRESS</small>
+        <strong id="resumeText"></strong>
+      </div>
+      <div class="resume-controls">
+        <button class="resume-mini" id="resumePauseBtn">⏸</button>
+        <button class="resume-mini" id="resumeSkipBtn">↠</button>
+        <button class="resume-mini red" id="resumeEndBtn">■</button>
+        <button class="resume-mini green" id="resumeBtn">BACK</button>
+      </div>
     </div>
 
     <nav class="bottom-nav">

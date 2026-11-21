@@ -29,6 +29,10 @@ const RoutineBuilder = (() => {
     const map = loadAll();
     delete map[name];
     saveAll(map);
+    // Sync deletion to the sheet (fire-and-forget).
+    if (typeof MoveAPI !== 'undefined') {
+      MoveAPI.deleteRoutine(name).catch(() => {});
+    }
   }
   // Returns all custom routines in the same shape as RoutinesView expects.
   function allRoutines() { return loadAll(); }
@@ -183,6 +187,10 @@ const RoutineBuilder = (() => {
           sideLabel: sideLabel(ex.side)
         }))
       };
+      // Rename: delete old name from sheet first.
+      if (editingName && editingName !== name && typeof MoveAPI !== 'undefined') {
+        MoveAPI.deleteRoutine(editingName).catch(() => {});
+      }
       saveRoutine(routine);
       editingName = null;
       items = [];
@@ -190,6 +198,18 @@ const RoutineBuilder = (() => {
       onRoutinesSaved();
       renderList();
       if (typeof toast === 'function') toast(`"${name}" saved.`);
+      // Sync new/updated routine to the sheet (fire-and-forget).
+      if (typeof MoveAPI !== 'undefined') {
+        const sheetRows = routine.items.map(ex => ({
+          Order: ex.order, Exercise: ex.name,
+          Duration_s: ex.duration, Rest_s: ex.rest,
+          Side: ex.side, Reps: ex.reps,
+          Image_URL: ex.image || '', Notes: ex.notes || ''
+        }));
+        MoveAPI.saveRoutineRows(routine.name, sheetRows)
+          .then(() => { if (typeof toast === 'function') toast(`"${name}" synced to sheet.`); })
+          .catch(() => { if (typeof toast === 'function') toast(`"${name}" saved locally · sheet sync pending.`); });
+      }
     };
   }
 

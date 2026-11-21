@@ -157,6 +157,9 @@ function refreshResumeBar() {
   if (!bar.hidden) {
     const name = lastSnap.phase === 'rest' ? 'Rest' : (lastSnap.current?.name || 'Workout');
     $('resumeText').textContent = `${name} · ${lastSnap.phase === 'count' ? `${lastSnap.count}/${lastSnap.target}` : mmss(lastSnap.remaining)}`;
+    // Fix 4: update pause/resume icon on the mini button.
+    const pb = $('resumePauseBtn');
+    if (pb) pb.textContent = lastSnap.paused ? '▶' : '⏸';
   }
 }
 const mmss = sec => {
@@ -538,6 +541,34 @@ $('openWorkouts').onclick = () => showView('workoutsView');
 $('startFeatured').onclick = () => showView('workoutsView');
 $('backHome').onclick = () => showView('workoutsView'); // leaves the workout running
 $('resumeBtn').onclick = () => showView('timerView');
+// Fix 4: mini controls on the resume bar.
+$('resumePauseBtn').onclick = () => {
+  const s = WorkoutEngine.state();
+  if (s.paused) WorkoutEngine.resume(); else WorkoutEngine.pause();
+};
+$('resumeSkipBtn').onclick = () => WorkoutEngine.skip();
+$('resumeEndBtn').onclick = async () => {
+  if (!confirm('End workout and save it as a completed session?')) return;
+  clearInterval(elapsedTicker);
+  WorkoutEngine.stop();
+  releaseAudio();
+  const now = Date.now();
+  const record = {
+    id: crypto.randomUUID(), routineName,
+    startedAt: sessionStartTs || now, endedAt: now,
+    durationSeconds: Math.round((now - (sessionStartTs || now)) / 1000),
+    reps: chosenReps, status: 'completed', details: [], syncStatus: 'pending'
+  };
+  await MoveDB.saveWorkout(record);
+  showView('timerView');
+  showSummary(record);
+  try {
+    await MoveAPI.saveWorkout(record);
+    await MoveDB.saveWorkout({ ...record, syncStatus: 'synced' });
+    toast('Workout saved to Google Sheets');
+  } catch (err) { toast('Saved on this device · cloud sync pending'); }
+  await refreshData();
+};
 $('pauseBtn').onclick = () => {
   const s = WorkoutEngine.state();
   if (s.phase === 'idle') WorkoutEngine.startCurrent();
@@ -610,10 +641,21 @@ $('endBtn').onclick = async () => {
     if (dy >= THRESHOLD) {
       indicator.textContent = '↻ Syncing…';
       indicator.style.opacity = '1';
-      refreshData().then(() => {
+      // Fix 5: activate any waiting service worker so new code loads immediately.
+      (async () => {
+        const reg = await navigator.serviceWorker?.getRegistration();
+        if (reg) {
+          if (reg.waiting) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            await new Promise(r => setTimeout(r, 400));
+          } else {
+            await reg.update();
+          }
+        }
+        await refreshData();
         indicator.textContent = '↓ Pull to refresh';
         indicator.style.opacity = '0';
-      });
+      })();
     }
   }, { passive: true });
 }());

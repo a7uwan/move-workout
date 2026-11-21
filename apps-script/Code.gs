@@ -29,6 +29,16 @@ function doGet(e) {
     return deleteWorkout_(p, callback);
   }
 
+  if (action === 'saveRoutineRows') {
+    if (!safeEqual_(p.token, WRITE_TOKEN)) return respond_({ok:false,error:'Unauthorized'}, callback);
+    return saveRoutineRows_(p, callback);
+  }
+
+  if (action === 'deleteRoutine') {
+    if (!safeEqual_(p.token, WRITE_TOKEN)) return respond_({ok:false,error:'Unauthorized'}, callback);
+    return deleteRoutineRows_(p, callback);
+  }
+
   if (!safeEqual_(p.token, READ_TOKEN)) return respond_({ok:false,error:'Unauthorized'}, callback);
   if (action === 'routines') return respond_({ok:true, routines:readRows_('Routines')}, callback);
   if (action === 'workouts') return respond_({ok:true, workouts:readWorkouts_()}, callback);
@@ -85,6 +95,79 @@ function saveWorkout_(p, callback) {
       lock.releaseLock();
     }
     return respond_({ok:true, id:log.id}, callback);
+  } catch (err) {
+    return respond_({ok:false, error:String(err)}, callback);
+  }
+}
+
+// Saves or replaces all rows for one routine. Rows are JSON-encoded in p.rows.
+function saveRoutineRows_(p, callback) {
+  try {
+    const routineName = String(p.routine_name || '').slice(0, 120);
+    if (!routineName) throw new Error('Missing routine_name');
+    let rows;
+    try { rows = JSON.parse(p.rows || '[]'); } catch (_) { throw new Error('rows must be JSON'); }
+    if (!Array.isArray(rows) || rows.length === 0) throw new Error('rows is empty');
+    if (rows.length > 50) throw new Error('Too many rows (max 50)');
+
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    let sheet = ss.getSheetByName('Routines');
+    if (!sheet) {
+      sheet = ss.insertSheet('Routines');
+      sheet.appendRow(['Routine','Order','Exercise','Duration_s','Rest_s','Side','Reps','Image_URL','Notes']);
+    }
+
+    const lock = LockService.getScriptLock();
+    lock.waitLock(10000);
+    try {
+      // Delete existing rows for this routine.
+      const lastRow = sheet.getLastRow();
+      if (lastRow > 1) {
+        const data = sheet.getRange(2, 1, lastRow - 1, 1).getValues().flat();
+        for (let i = data.length - 1; i >= 0; i--) {
+          if (String(data[i]) === routineName) sheet.deleteRow(i + 2);
+        }
+      }
+      // Append new rows.
+      rows.forEach(r => sheet.appendRow([
+        routineName,
+        Number(r.Order) || 0,
+        String(r.Exercise || '').slice(0, 120),
+        Number(r.Duration_s) || 30,
+        Number(r.Rest_s) || 0,
+        String(r.Side || 'None').slice(0, 10),
+        Number(r.Reps) || 0,
+        String(r.Image_URL || '').slice(0, 500),
+        String(r.Notes || '').slice(0, 300)
+      ]));
+    } finally {
+      lock.releaseLock();
+    }
+    return respond_({ok:true, routine: routineName, count: rows.length}, callback);
+  } catch (err) {
+    return respond_({ok:false, error:String(err)}, callback);
+  }
+}
+
+// Deletes all rows for one routine from the Routines sheet.
+function deleteRoutineRows_(p, callback) {
+  try {
+    const routineName = String(p.routine_name || '').slice(0, 120);
+    if (!routineName) throw new Error('Missing routine_name');
+    const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('Routines');
+    if (!sheet || sheet.getLastRow() < 2) return respond_({ok:true, deleted:0}, callback);
+    const lock = LockService.getScriptLock();
+    lock.waitLock(10000);
+    let deleted = 0;
+    try {
+      const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues().flat();
+      for (let i = data.length - 1; i >= 0; i--) {
+        if (String(data[i]) === routineName) { sheet.deleteRow(i + 2); deleted++; }
+      }
+    } finally {
+      lock.releaseLock();
+    }
+    return respond_({ok:true, deleted}, callback);
   } catch (err) {
     return respond_({ok:false, error:String(err)}, callback);
   }
