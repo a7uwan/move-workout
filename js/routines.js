@@ -153,7 +153,16 @@ const RoutinesView = (() => {
       const chip = e.target.closest('.rep-chip');
       if (chip) {
         selectedReps = Number(chip.dataset.reps);
-        renderDetail();
+        // Fix 5: update chips selection and recalculate total without full re-render.
+        els.detail.querySelectorAll('.rep-chip').forEach(c =>
+          c.classList.toggle('selected', Number(c.dataset.reps) === selectedReps));
+        const r = routines[selectedName];
+        const totalEl = els.detail.querySelector('.rep-total');
+        const startBtn = els.detail.querySelector('#routineStart');
+        const hintEl = els.detail.querySelector('.rep-hint');
+        if (r && totalEl) totalEl.textContent = `Estimated total: ${fmtTime(WorkoutEngine.plannedSeconds(r.items, selectedReps))}`;
+        if (startBtn) startBtn.disabled = false;
+        if (hintEl) hintEl.remove();
         return;
       }
       if (e.target.closest('#routineStart') && selectedReps) {
@@ -167,5 +176,14 @@ const RoutinesView = (() => {
     });
   }
 
-  return { mount, load, setRows };
+  // Merges additional rows (from the in-app builder) without re-fetching from the sheet.
+  function mergeCustomRows(rows) {
+    const extra = normalize(rows);
+    Object.assign(routines, extra);
+    if (!els.list) return;
+    renderList();
+    renderDetail();
+  }
+
+  return { mount, load, setRows, mergeCustomRows };
 })();

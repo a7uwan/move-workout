@@ -1,7 +1,7 @@
-const CACHE='move-pwa-v7-images';
+const CACHE='move-pwa-v8-builder';
 const IMG_CACHE='move-images-v1';
 const IMG_MAX=80;
-const ASSETS=['./','./index.html','./manifest.json','./css/style.css','./css/features.css','./css/theme-glass.css','./js/config.js','./js/api.js','./js/database.js','./js/workout-engine.js','./js/stats.js','./js/routines.js','./js/history.js','./js/app.js'];
+const ASSETS=['./','./index.html','./manifest.json','./css/style.css','./css/features.css','./css/theme-glass.css','./js/config.js','./js/api.js','./js/database.js','./js/workout-engine.js','./js/stats.js','./js/routines.js','./js/builder.js','./js/history.js','./js/app.js'];
 
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS))));
 

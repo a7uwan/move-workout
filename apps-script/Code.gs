@@ -24,6 +24,11 @@ function doGet(e) {
     return saveWorkout_(p, callback);
   }
 
+  if (action === 'deleteWorkout') {
+    if (!safeEqual_(p.token, WRITE_TOKEN)) return respond_({ok:false,error:'Unauthorized'}, callback);
+    return deleteWorkout_(p, callback);
+  }
+
   if (!safeEqual_(p.token, READ_TOKEN)) return respond_({ok:false,error:'Unauthorized'}, callback);
   if (action === 'routines') return respond_({ok:true, routines:readRows_('Routines')}, callback);
   if (action === 'workouts') return respond_({ok:true, workouts:readWorkouts_()}, callback);
@@ -80,6 +85,29 @@ function saveWorkout_(p, callback) {
       lock.releaseLock();
     }
     return respond_({ok:true, id:log.id}, callback);
+  } catch (err) {
+    return respond_({ok:false, error:String(err)}, callback);
+  }
+}
+
+function deleteWorkout_(p, callback) {
+  try {
+    const id = String(p.log_id || '');
+    if (!/^[A-Za-z0-9-]{8,64}$/.test(id)) throw new Error('Invalid log_id');
+    const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('WorkoutLogs');
+    if (!sheet) throw new Error('WorkoutLogs tab not found');
+    const lock = LockService.getScriptLock();
+    lock.waitLock(10000);
+    try {
+      const lastRow = sheet.getLastRow();
+      if (lastRow < 2) return respond_({ok:true,deleted:false}, callback);
+      const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues().flat();
+      const rowIdx = ids.indexOf(id);
+      if (rowIdx >= 0) sheet.deleteRow(rowIdx + 2);
+      return respond_({ok:true, deleted: rowIdx >= 0}, callback);
+    } finally {
+      lock.releaseLock();
+    }
   } catch (err) {
     return respond_({ok:false, error:String(err)}, callback);
   }

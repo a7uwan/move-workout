@@ -27,6 +27,9 @@ const HistoryView = (() => {
       if (!id) return;
       if (!confirm('Remove this session from history?')) return;
       await MoveDB.deleteWorkout(id);
+      // Fix 4: mark deleted locally AND remove from the sheet so it never reappears.
+      if (typeof markDeleted === 'function') markDeleted(id);
+      try { await MoveAPI.deleteWorkout(id); } catch (_) {}
       onDelete();
     });
   }
@@ -55,12 +58,15 @@ const HistoryView = (() => {
         const pct = Math.max(4, Math.round((sec / longest) * 100));
         const when = new Date(w.startedAt);
         const date = when.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-        const time = when.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-        const reps = w.reps ? ` · ${w.reps} reps each` : '';
+        const time = when.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true });
+        const reps = w.reps ? ` · ${w.reps} reps` : '';
         const sync = w.syncStatus === 'synced' ? '' : ' · pending sync';
         return `<article class="glass hist-session">
           <div class="hist-top">
-            <div><strong>${esc(w.routineName)}</strong><small>${date} · ${time}${reps}${sync}</small></div>
+            <div>
+              <strong>${esc(w.routineName)}</strong>
+              <small class="hist-meta"><span class="hist-time">${time}</span> · ${date} · ${fmtDuration(sec)}${reps}${sync}</small>
+            </div>
             <div class="hist-top-right">
               <span class="dur-pill">${fmtDuration(sec)}</span>
               <button class="del-btn" data-id="${esc(w.id)}" aria-label="Delete this session">✕</button>

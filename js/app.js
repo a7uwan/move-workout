@@ -114,10 +114,35 @@ function speak(message) {
   window.speechSynthesis.speak(u);
 }
 
-// Receives cues from WorkoutEngine: 'beep' (3 seconds before the next exercise) and 'changeSide'.
-function handleCue(type) {
+// Lower-pitched beep for rest countdown — distinct from the exercise-start beep.
+function restBeep() {
+  try {
+    const c = getAudio();
+    if (!c) return;
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.frequency.value = 440;   // lower pitch = rest ending
+    g.gain.value = 0.18;
+    o.connect(g);
+    g.connect(c.destination);
+    o.start();
+    o.stop(c.currentTime + 0.12);
+  } catch (err) {
+    console.warn('MOVE rest beep failed:', err.message);
+  }
+}
+
+// Receives cues from WorkoutEngine.
+function handleCue(type, data) {
   if (type === 'beep') beep();
   if (type === 'changeSide') speak('Change side');
+  if (type === 'restCountdown') {
+    restBeep();
+    // Speak only on 3 so it doesn't clash with beep; the lower-pitched beep covers 2 and 1.
+    if (data && data.remaining === 3) speak('3');
+    if (data && data.remaining === 2) speak('2');
+    if (data && data.remaining === 1) speak('1');
+  }
 }
 
 /* ---------- Timer screen ---------- */
@@ -139,9 +164,36 @@ const mmss = sec => {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 };
 
-// Shows an exercise image from the sheet's Image_URL column. Hides the slot when there is no URL or the load fails.
-function setImage(id, url) {
-  const el = $(id);
+// Detects media type and shows the right element: img, video, or YouTube iframe.
+// Hides the whole wrap when there is nothing to show.
+function setMedia(url) {
+  const wrap = $('currentMediaWrap');
+  const img = $('currentImg');
+  const vid = $('currentVideo');
+  const frame = $('currentIframe');
+  if (!url) { wrap.hidden = true; img.hidden = vid.hidden = frame.hidden = true; return; }
+  const u = url.trim();
+  const ytMatch = u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/))([A-Za-z0-9_-]{11})/);
+  if (ytMatch) {
+    img.hidden = true; vid.hidden = true; frame.hidden = false;
+    const src = `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&mute=1&loop=1&playlist=${ytMatch[1]}&controls=0`;
+    if (frame.src !== src) frame.src = src;
+    wrap.hidden = false; return;
+  }
+  if (/\.gif$/i.test(u) || /\.mp4$|\.webm$|\.mov$/i.test(u)) {
+    img.hidden = true; frame.hidden = true; vid.hidden = false;
+    if (vid.getAttribute('src') !== u) { vid.src = u; vid.load(); }
+    wrap.hidden = false; return;
+  }
+  // Default: static image.
+  frame.hidden = true; vid.hidden = true; img.hidden = false;
+  img.onerror = () => { wrap.hidden = true; };
+  if (img.getAttribute('src') !== u) img.src = u;
+  wrap.hidden = false;
+}
+
+function setNextImg(url) {
+  const el = $('nextImg');
   if (!url) { el.hidden = true; el.removeAttribute('src'); return; }
   el.onerror = () => { el.hidden = true; };
   if (el.getAttribute('src') !== url) el.src = url;
@@ -189,14 +241,14 @@ function renderTimer(s) {
   btn.textContent = idle ? 'START TIMER' : (done || stopped) ? 'DONE' : s.paused ? 'RESUME' : 'PAUSE';
   btn.disabled = done || stopped || counting;
 
-  const pct = done ? 360 : counting ? (s.count / Math.max(1, s.target)) * 360 : (!idle && s.segSeconds) ? ((s.segSeconds - s.remaining) / s.segSeconds) * 360 : 0;
-  $('timerRing').style.background = `conic-gradient(var(--green) ${pct}deg, rgba(255,255,255,.10) ${pct}deg)`;
+  const pct = done ? 100 : counting ? Math.round((s.count / Math.max(1, s.target)) * 100) : (!idle && s.segSeconds) ? Math.round(((s.segSeconds - s.remaining) / s.segSeconds) * 100) : 0;
+  const bar = $('timerBarFill');
+  if (bar) bar.style.width = pct + '%';
 
-  // Images: the main slot shows the movement in progress (the next one during rest).
-  // The Up Next card shows the following movement, and only outside rest.
+  // Media: show image/gif/video/youtube for the current exercise.
   const finished = done || stopped;
-  setImage('currentImg', !finished && !idle ? (rest ? s.next?.image : s.current?.image) : (idle ? s.current?.image : ''));
-  setImage('nextImg', !finished && !rest && !idle ? s.next?.image : '');
+  setMedia(!finished ? (rest ? s.next?.image : s.current?.image) : '');
+  setNextImg(!finished && !rest && !idle ? s.next?.image : '');
 
   // Announce each new movement or rest once, when its step starts.
   if (!idle && !done && !stopped && s.stepIndex !== lastStep) {
@@ -302,11 +354,28 @@ async function pushPending() {
   return pushed;
 }
 
+const DELETED_IDS_KEY = 'move-deleted-ids';
+function getDeletedIds() {
+  try { return new Set(JSON.parse(localStorage.getItem(DELETED_IDS_KEY) || '[]')); } catch (_) { return new Set(); }
+}
+function markDeleted(id) {
+  const s = getDeletedIds(); s.add(id);
+  localStorage.setItem(DELETED_IDS_KEY, JSON.stringify([...s]));
+}
+
 async function pullCloud() {
   const res = await MoveAPI.getWorkouts();
+  const deleted = getDeletedIds();
   for (const w of (res.workouts || [])) {
+    // Fix 4: skip IDs the user deleted locally so they never reappear.
+    if (deleted.has(w.id)) continue;
     await MoveDB.saveWorkout({ ...w, syncStatus: 'synced' });
   }
+}
+
+function workoutActive() {
+  const s = WorkoutEngine.state();
+  return s.phase !== 'idle' && s.phase !== 'done' && s.phase !== 'stopped';
 }
 
 async function refreshData() {
@@ -317,19 +386,32 @@ async function refreshData() {
   }
   try {
     await pushPending();
-    await pullCloud();
+    // Fix 3: never pull cloud or reload routines while a workout is running.
+    if (!workoutActive()) {
+      await pullCloud();
+      await loadRoutines();
+    }
     setStatus('Synced');
   } catch (err) {
     console.warn('MOVE cloud load failed:', err.message);
     setStatus('Cloud unavailable');
   }
-  await loadRoutines();
   await renderAll();
 }
 
 async function loadRoutines() {
   const routines = await RoutinesView.load();
-  prefetchImages(routines);
+  // Merge custom routines from the builder (already normalised, inject as sheet-format rows).
+  const custom = RoutineBuilder.allRoutines();
+  const customRows = Object.values(custom).flatMap(r =>
+    r.items.map(i => ({
+      Routine: r.name, Order: i.order, Exercise: i.name,
+      Duration_s: i.duration, Rest_s: i.rest, Side: i.side,
+      Reps: i.reps, Image_URL: i.image, Notes: i.notes
+    }))
+  );
+  if (customRows.length) RoutinesView.mergeCustomRows(customRows);
+  prefetchImages({ ...routines, ...custom });
   const first = Object.values(routines)[0];
   if (first) {
     const min = Math.round(WorkoutEngine.plannedSeconds(first.items, 1) / 60);
@@ -548,14 +630,17 @@ StatsView.mount({
   detail: $('statsDayDetail'),
   chart: $('statsChart'),
   exercises: $('statsExercises'),
+  exercisesMonth: $('statsExercisesMonth'),
   onMonthChange: async (year, month) => {
     statsYear = year;
     statsMonth = month;
+    StatsView.setStatsMonth(year, month);
     const logs = await MoveDB.getWorkouts();
     renderStats(logs);
   }
 });
 HistoryView.mount($('historyList'), { onDelete: renderAll });
+RoutineBuilder.mount($('builderContainer'), { onRoutinesSaved: loadRoutines });
 
 $('todayLabel').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase();
 setStatus(navigator.onLine ? 'Ready' : 'Offline');

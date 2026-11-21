@@ -23,7 +23,10 @@ const StatsView = (() => {
   let logs = [];
   const calendars = [];
   let chartEl = null;
-  let exerciseEl = null;
+  let exerciseEl = null;       // year breakdown
+  let exerciseMonthEl = null;  // month breakdown
+  let statsYear2 = new Date().getFullYear();
+  let statsMonth2 = new Date().getMonth();
 
   function groupByDay() {
     const map = {};
@@ -101,7 +104,7 @@ const StatsView = (() => {
         viewYear = d.getFullYear();
         viewMonth = d.getMonth();
         renderCalendar();
-        if (opts.onMonthChange) opts.onMonthChange(viewYear, viewMonth);
+            if (opts.onMonthChange) opts.onMonthChange(viewYear, viewMonth);
         return;
       }
       const cell = e.target.closest('.cal-cell');
@@ -119,10 +122,9 @@ const StatsView = (() => {
     try { const v = JSON.parse(w.details || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; }
   }
 
-  function renderExercises() {
-    if (!exerciseEl) return;
+  function buildExerciseAgg(subset) {
     const agg = {};
-    for (const w of logs) {
+    for (const w of subset) {
       for (const d of parseDetails(w)) {
         const name = String(d.name || 'Unnamed');
         const a = (agg[name] ||= { name, seconds: 0, taps: 0, sessions: 0 });
@@ -131,9 +133,13 @@ const StatsView = (() => {
         a.sessions++;
       }
     }
-    const rows = Object.values(agg).sort((a, b) => (b.seconds - a.seconds) || (b.taps - a.taps));
+    return Object.values(agg).sort((a, b) => (b.seconds - a.seconds) || (b.taps - a.taps));
+  }
+
+  function renderExBars(el, rows, title) {
+    if (!el) return;
     if (!rows.length) {
-      exerciseEl.innerHTML = '<article class="glass chart-card"><div class="eyebrow">TIME PER EXERCISE</div><p class="cal-hint">Finish a workout to see time per exercise.</p></article>';
+      el.innerHTML = `<article class="glass chart-card"><div class="eyebrow">${title}</div><p class="cal-hint">No data yet for this period.</p></article>`;
       return;
     }
     const maxSec = Math.max(1, ...rows.map(r => r.seconds));
@@ -146,7 +152,16 @@ const StatsView = (() => {
         <div class="ex-bar-track"><div class="ex-bar-fill" style="width:${pct}%"></div></div>
       </div>`;
     }).join('');
-    exerciseEl.innerHTML = `<article class="glass chart-card"><div class="eyebrow">TIME PER EXERCISE · ALL SESSIONS</div><div class="ex-bars">${items}</div></article>`;
+    el.innerHTML = `<article class="glass chart-card"><div class="eyebrow">${title}</div><div class="ex-bars">${items}</div></article>`;
+  }
+
+  function renderExercises() {
+    // Fix 6: month breakdown above, year breakdown below.
+    const monthLogs = logs.filter(w => inMonth(w.startedAt, statsYear2, statsMonth2));
+    const yearLogs = logs.filter(w => new Date(w.startedAt).getFullYear() === statsYear2);
+    const mLabel = new Date(statsYear2, statsMonth2, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    renderExBars(exerciseMonthEl, buildExerciseAgg(monthLogs), `TIME PER EXERCISE · ${mLabel.toUpperCase()}`);
+    renderExBars(exerciseEl, buildExerciseAgg(yearLogs), `TIME PER EXERCISE · ${statsYear2}`);
   }
 
   function weekStart(date) {
@@ -193,6 +208,7 @@ const StatsView = (() => {
     if (elements.calendar) calendars.push(createCalendar(elements, { onMonthChange: elements.onMonthChange }));
     if (elements.chart) chartEl = elements.chart;
     if (elements.exercises) exerciseEl = elements.exercises;
+    if (elements.exercisesMonth) exerciseMonthEl = elements.exercisesMonth;
   }
 
   function render(newLogs) {
@@ -211,5 +227,11 @@ const StatsView = (() => {
     return { count: list.length, minutes: mins(sumSec(list)) };
   }
 
-  return { mount, render, monthSummary };
+  function setStatsMonth(year, month) {
+    statsYear2 = year;
+    statsMonth2 = month;
+    renderExercises();
+  }
+
+  return { mount, render, monthSummary, setStatsMonth };
 })();

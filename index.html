@@ -49,16 +49,24 @@
       <div class="welcome"><div class="eyebrow">YOUR TRAINING</div><h2>Workouts.</h2><p>Pick a routine, check its exercises, then choose reps.</p></div>
       <div id="allRoutines" class="routine-list"></div>
       <section id="routineDetail"></section>
+      <section id="builderContainer"></section>
     </section>
 
     <section id="timerView" class="view">
       <button class="back-btn" id="backHome">← Workouts</button>
       <article id="summaryCard" class="glass summary-card" hidden></article>
       <div class="timer-top"><div class="eyebrow" id="timerStep">READY</div><div class="session-progress" id="sessionProgress">Exercise 1 of 1</div></div>
-      <img id="currentImg" class="timer-img" alt="" hidden>
+      <div id="currentMediaWrap" hidden>
+        <img id="currentImg" class="timer-img" alt="">
+        <video id="currentVideo" class="timer-img" autoplay loop muted playsinline></video>
+        <iframe id="currentIframe" class="timer-iframe" frameborder="0" allowfullscreen></iframe>
+      </div>
       <h2 id="exerciseName" class="exercise-name">Get into position</h2>
       <p id="exerciseSide" class="exercise-side">Tap START TIMER when ready</p>
-      <div class="timer-ring" id="timerRing"><div><strong id="timerDisplay">00:00</strong><small>REMAINING</small></div></div>
+      <div class="timer-bar-wrap">
+        <div class="timer-bar-label"><strong id="timerDisplay">00:00</strong><small>REMAINING</small></div>
+        <div class="timer-bar-track"><div class="timer-bar-fill" id="timerBarFill" style="width:0%"></div></div>
+      </div>
       <div class="float-controls" id="floatControls">
         <div class="float-elapsed"><small>ELAPSED</small><span id="sessionElapsed">00:00</span></div>
         <div class="up-next glass"><img id="nextImg" class="next-img" alt="" hidden><div><small>UP NEXT</small><strong id="upNext"></strong></div><span>↗</span></div>
@@ -86,6 +94,7 @@
       <section id="statsCalendar"></section>
       <section id="statsDayDetail"></section>
       <section id="statsChart"></section>
+      <section id="statsExercisesMonth"></section>
       <section id="statsExercises"></section>
     </section>
 
@@ -108,6 +117,7 @@
   <script src="./js/workout-engine.js"></script>
   <script src="./js/stats.js"></script>
   <script src="./js/routines.js"></script>
+  <script src="./js/builder.js"></script>
   <script src="./js/history.js"></script>
   <script src="./js/app.js"></script>
   <script>if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(console.error));</script>

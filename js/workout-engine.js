@@ -4,6 +4,7 @@
 const WorkoutEngine = (() => {
   const SIDE_CUE_AT = 25;      // seconds into a 30s side when "CHANGE SIDE" is announced
   const BEEP_FROM = 3;         // beep for the last 3 seconds before the next movement
+  const REST_COUNTDOWN = 3;    // voice countdown seconds at end of rest
 
   let segs = [];
   let routine = [];
@@ -133,6 +134,10 @@ const WorkoutEngine = (() => {
       const newMovement = next && !(next.ex === seg.ex && next.rep === seg.rep);
       if (next && next.type !== 'rest' && newMovement && left >= 1 && left <= BEEP_FROM) {
         onCue('beep', { remaining: left });
+      }
+      // Voice countdown at the end of rest.
+      if (seg.type === 'rest' && left >= 1 && left <= REST_COUNTDOWN) {
+        onCue('restCountdown', { remaining: left });
       }
       if (seg.changeSideAt !== undefined && !sideCued && seg.seconds - left >= seg.changeSideAt) {
         sideCued = true;
