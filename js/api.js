@@ -52,11 +52,21 @@ const MoveAPI = (() => {
     ping: () => request({action: 'ping'}),
     getRoutines: () => request({action: 'routines'}),
     getWorkouts: () => request({action: 'workouts'}),
-    saveRoutineRows: (routineName, rows) => request({
-      action: 'saveRoutineRows',
-      routine_name: routineName,
-      rows: JSON.stringify(rows)
-    }),
+    saveRoutineRows: (routineName, rows) => {
+      // Encode each row as flat fields to avoid JSON encoding issues in JSONP GET URLs.
+      const params = { action: 'saveRoutineRows', routine_name: routineName, row_count: String(rows.length) };
+      rows.forEach((r, i) => {
+        params[`r${i}_ex`]   = String(r.Exercise   || '').slice(0, 120);
+        params[`r${i}_ord`]  = String(Number(r.Order)       || i + 1);
+        params[`r${i}_dur`]  = String(Number(r.Duration_s)  || 30);
+        params[`r${i}_rest`] = String(Number(r.Rest_s)      || 0);
+        params[`r${i}_side`] = String(r.Side        || 'None').slice(0, 10);
+        params[`r${i}_reps`] = String(Number(r.Reps)        || 0);
+        params[`r${i}_img`]  = String(r.Image_URL   || '').slice(0, 300);
+        params[`r${i}_note`] = String(r.Notes       || '').slice(0, 200);
+      });
+      return request(params);
+    },
     deleteRoutine: routineName => request({
       action: 'deleteRoutine',
       routine_name: routineName

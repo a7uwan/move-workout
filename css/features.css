@@ -81,8 +81,22 @@
 .dur-track{height:6px;border-radius:6px;background:rgba(255,255,255,.08);margin-top:12px;overflow:hidden}
 .dur-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--blue));border-radius:6px}
 
-/* Fix 1+2: floating controls — fixed, above bottom-nav (z-index 10 > nav z-index 5) */
-.float-controls{position:fixed!important;bottom:calc(68px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:min(calc(100% - 0px),560px);z-index:10;padding:10px 20px 0;background:none!important}
+/* Fix 1+2: floating controls — fixed, sits above bottom-nav which is ~68px tall.
+   The dock itself is ~190px tall so total clearance from bottom = 68 + 190 = 258px.
+   We only need to set bottom = nav height; the dock grows upward naturally.
+   We add a frosted gradient backdrop so content under it is readable. */
+.float-controls{
+  position:fixed!important;
+  bottom:calc(60px + env(safe-area-inset-bottom));
+  left:50%;
+  transform:translateX(-50%);
+  width:min(100%,560px);
+  z-index:10;
+  padding:14px 20px 12px;
+  background:linear-gradient(to top,rgba(10,16,30,.96) 60%,transparent 100%)!important;
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
 .float-elapsed{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:6px}
 .float-elapsed small{font-size:9px;letter-spacing:1.5px;color:var(--muted)}
 .float-elapsed span{font-size:14px;font-weight:800;color:var(--green);font-variant-numeric:tabular-nums}
@@ -96,8 +110,8 @@
 .timer-bar-track{height:10px;border-radius:10px;background:rgba(255,255,255,.10);overflow:hidden}
 .timer-bar-fill{height:100%;border-radius:10px;background:linear-gradient(90deg,var(--green),var(--blue));transition:width .25s linear}
 
-/* Extra bottom padding on timer view to clear the fixed float-controls */
-#timerView{padding-bottom:220px}
+/* Extra bottom padding on timer view to clear the fixed float-controls (~68 nav + ~190 dock + 20 gap) */
+#timerView{padding-bottom:300px}
 
 /* Routine builder */
 .builder-input{background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:9px 12px;font-size:13px;font:inherit}
@@ -123,8 +137,8 @@
 
 /* Resume bar: shown while a routine runs and the timer screen is closed */
 [hidden]{display:none!important}
-/* Fix 4: resume bar with inline controls, above bottom-nav */
-.resume-bar{position:fixed;z-index:11;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom));width:min(calc(100% - 24px),540px);padding:10px 12px;display:flex;align-items:center;gap:8px}
+/* Fix 4: resume bar with inline controls, sits just above bottom-nav */
+.resume-bar{position:fixed;z-index:11;left:50%;transform:translateX(-50%);bottom:calc(64px + env(safe-area-inset-bottom));width:min(calc(100% - 24px),540px);padding:10px 12px;display:flex;align-items:center;gap:8px}
 .resume-bar-info{flex:1;min-width:0}
 .resume-bar small{display:block;color:var(--muted);font-size:9px;letter-spacing:1.5px}
 .resume-bar strong{display:block;font-size:13px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

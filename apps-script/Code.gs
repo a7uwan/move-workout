@@ -100,15 +100,31 @@ function saveWorkout_(p, callback) {
   }
 }
 
-// Saves or replaces all rows for one routine. Rows are JSON-encoded in p.rows.
+// Saves or replaces all rows for one routine.
+// Rows arrive as flat fields: r0_ex, r0_dur, r0_rest, r0_side, r0_reps, r0_img, r0_note ... up to row_count.
 function saveRoutineRows_(p, callback) {
   try {
     const routineName = String(p.routine_name || '').slice(0, 120);
     if (!routineName) throw new Error('Missing routine_name');
-    let rows;
-    try { rows = JSON.parse(p.rows || '[]'); } catch (_) { throw new Error('rows must be JSON'); }
-    if (!Array.isArray(rows) || rows.length === 0) throw new Error('rows is empty');
-    if (rows.length > 50) throw new Error('Too many rows (max 50)');
+    const count = parseInt(p.row_count, 10) || 0;
+    if (count === 0) throw new Error('row_count is 0');
+    if (count > 50)  throw new Error('Too many rows (max 50)');
+
+    // Reconstruct rows from flat fields.
+    const rows = [];
+    for (let i = 0; i < count; i++) {
+      rows.push([
+        routineName,
+        Number(p[`r${i}_ord`])  || i + 1,
+        String(p[`r${i}_ex`]   || '').slice(0, 120),
+        Number(p[`r${i}_dur`])  || 30,
+        Number(p[`r${i}_rest`]) || 0,
+        String(p[`r${i}_side`]  || 'None').slice(0, 10),
+        Number(p[`r${i}_reps`]) || 0,
+        String(p[`r${i}_img`]   || '').slice(0, 500),
+        String(p[`r${i}_note`]  || '').slice(0, 300)
+      ]);
+    }
 
     const ss = SpreadsheetApp.openById(SHEET_ID);
     let sheet = ss.getSheetByName('Routines');
@@ -123,23 +139,13 @@ function saveRoutineRows_(p, callback) {
       // Delete existing rows for this routine.
       const lastRow = sheet.getLastRow();
       if (lastRow > 1) {
-        const data = sheet.getRange(2, 1, lastRow - 1, 1).getValues().flat();
-        for (let i = data.length - 1; i >= 0; i--) {
-          if (String(data[i]) === routineName) sheet.deleteRow(i + 2);
+        const existing = sheet.getRange(2, 1, lastRow - 1, 1).getValues().flat();
+        for (let i = existing.length - 1; i >= 0; i--) {
+          if (String(existing[i]) === routineName) sheet.deleteRow(i + 2);
         }
       }
-      // Append new rows.
-      rows.forEach(r => sheet.appendRow([
-        routineName,
-        Number(r.Order) || 0,
-        String(r.Exercise || '').slice(0, 120),
-        Number(r.Duration_s) || 30,
-        Number(r.Rest_s) || 0,
-        String(r.Side || 'None').slice(0, 10),
-        Number(r.Reps) || 0,
-        String(r.Image_URL || '').slice(0, 500),
-        String(r.Notes || '').slice(0, 300)
-      ]));
+      // Append rebuilt rows.
+      rows.forEach(r => sheet.appendRow(r));
     } finally {
       lock.releaseLock();
     }
