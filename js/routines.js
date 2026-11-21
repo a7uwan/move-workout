@@ -31,14 +31,22 @@ const RoutinesView = (() => {
       const exercise = String(r.Exercise || '').trim();
       if (!name || !exercise) continue;
       const rawSide = String(r.Side || 'None').trim().toUpperCase();
-      const side = rawSide === 'LR30' ? 'LR30' : rawSide === 'COUNT' ? 'Count' : 'None';
+      // Parse LR<N> dynamically: LR30, LR40, LR45, etc. Each side = N seconds.
+      const lrMatch = rawSide.match(/^LR(\d+)$/);
+      const side = lrMatch ? 'LR' : rawSide === 'COUNT' ? 'Count' : 'None';
+      const lrN = lrMatch ? Math.max(1, parseInt(lrMatch[1], 10)) : 30;
+      // For LR sides: total duration = 2×N regardless of Duration_s column.
+      const duration = side === 'LR'
+        ? lrN * 2
+        : Math.max(1, Number(r.Duration_s) || 30);
       const item = {
         order: Number(r.Order) || 0,
         name: exercise,
-        duration: Math.max(1, Number(r.Duration_s) || 30),
+        duration,
+        lrN,
         rest: Math.max(0, Number(r.Rest_s) || 0),
         side,
-        sideLabel: side === 'LR30' ? 'Right 30s · Left 30s' : side === 'Count' ? 'Tap each rep' : 'Timed hold',
+        sideLabel: side === 'LR' ? `Right ${lrN}s · Left ${lrN}s` : side === 'Count' ? 'Tap each rep' : 'Timed hold',
         target: Math.max(1, Number(r.Duration_s) || 100),
         reps: Number(r.Reps) > 0 ? Math.round(Number(r.Reps)) : 0, // 0 = use the rep picker
         image: safeUrl(r.Image_URL),

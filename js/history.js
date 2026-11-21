@@ -34,16 +34,21 @@ const HistoryView = (() => {
     });
   }
 
-  function render(logs) {
+  function render(logs, filterYear) {
     if (!el) return;
-    if (!logs || !logs.length) {
+    // Apply year filter if provided.
+    const filtered = filterYear
+      ? (logs || []).filter(w => new Date(w.startedAt).getFullYear() === Number(filterYear))
+      : (logs || []);
+    if (!filtered.length) {
       el.innerHTML = '<article class="glass history-item"><strong>No workouts yet</strong><small>Your completed sessions will appear here.</small></article>';
       return;
     }
+    const logs2 = filtered; // alias for readability
 
     const groups = {};
-    for (const w of logs) (groups[monthKey(w.startedAt)] ||= []).push(w);
-    const longest = Math.max(1, ...logs.map(w => Number(w.durationSeconds) || 0));
+    for (const w of logs2) (groups[monthKey(w.startedAt)] ||= []).push(w);
+    const longest = Math.max(1, ...logs2.map(w => Number(w.durationSeconds) || 0));
     const monthKeys = Object.keys(groups).sort().reverse();
 
     el.innerHTML = monthKeys.map(key => {

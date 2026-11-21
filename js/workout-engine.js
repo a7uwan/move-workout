@@ -2,7 +2,10 @@
 // Segment types: exercise (timed), rest (timed), count (user taps each rep until the target).
 // The engine plays no sound. It reports cues ('beep', 'changeSide', 'tap') to the app.
 const WorkoutEngine = (() => {
-  const SIDE_CUE_AT = 25;      // seconds into a 30s side when "CHANGE SIDE" is announced
+  // SIDE_CUE_AT: announce "CHANGE SIDE" this many seconds before the half ends.
+  // For LR<N> we cue at (N - 5) seconds in, so there are 5 seconds warning regardless of N.
+  const SIDE_CUE_WARN = 5;     // seconds before end of a side when "CHANGE SIDE" is called
+  const SIDE_CUE_AT = 25;      // legacy constant kept for reference
   const BEEP_FROM = 3;         // beep for the last 3 seconds before the next movement
   const REST_COUNTDOWN = 3;    // voice countdown seconds at end of rest
 
@@ -36,10 +39,13 @@ const WorkoutEngine = (() => {
         const base = { ex: i, rep: k, reps };
         if (ex.side === 'Count') {
           out.push({ ...base, type: 'count', label: 'Tap each rep', seconds: 0, target: Math.max(1, Number(ex.target) || 100) });
-        } else if (ex.side === 'LR30') {
-          const half = Math.max(1, Math.round(ex.duration / 2));
-          out.push({ ...base, type: 'exercise', label: 'Right 30s', seconds: half, changeSideAt: SIDE_CUE_AT });
-          out.push({ ...base, type: 'exercise', label: 'Left 30s', seconds: half });
+        } else if (ex.side === 'LR') {
+          // Dynamic LR<N>: each side is lrN seconds (or half of duration if lrN absent).
+          const half = ex.lrN ? Math.max(1, ex.lrN) : Math.max(1, Math.round(ex.duration / 2));
+          const cueAt = Math.max(1, half - SIDE_CUE_WARN); // warn SIDE_CUE_WARN s before end
+          const lbl = ex.lrN ? `${ex.lrN}s` : '30s';
+          out.push({ ...base, type: 'exercise', label: `Right ${lbl}`, seconds: half, changeSideAt: cueAt });
+          out.push({ ...base, type: 'exercise', label: `Left ${lbl}`, seconds: half });
         } else {
           out.push({ ...base, type: 'exercise', label: ex.sideLabel || 'Timed hold', seconds: Math.max(1, ex.duration) });
         }

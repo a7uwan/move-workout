@@ -18,8 +18,19 @@
   <main class="app-shell">
     <header class="topbar">
       <div><div class="eyebrow">YOUR PERSONAL WORKOUT SPACE</div><h1>MOVE<span>.</span></h1></div>
-      <div class="status-pill"><i></i><span id="connectionStatus">Ready</span></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="theme-btn" id="themeBtn" aria-label="Change theme">🎨</button>
+        <div class="status-pill"><i></i><span id="connectionStatus">Ready</span></div>
+      </div>
     </header>
+    <!-- Theme drawer -->
+    <div id="themeDrawer" class="theme-drawer" hidden>
+      <div class="theme-drawer-inner glass">
+        <div class="eyebrow" style="margin-bottom:12px">CHOOSE THEME</div>
+        <div class="theme-grid" id="themeGrid"></div>
+        <button class="secondary-btn" id="themeClose" style="width:100%;margin-top:14px;padding:12px">CLOSE</button>
+      </div>
+    </div>
 
     <section id="homeView" class="view active">
       <div class="welcome"><div class="eyebrow" id="todayLabel">YOUR FITNESS JOURNAL</div><h2>Stay consistent.</h2><p>A little progress every day.</p></div>
@@ -81,11 +92,17 @@
 
     <section id="historyView" class="view">
       <div class="welcome"><div class="eyebrow">YOUR JOURNEY</div><h2>History.</h2><p>Completed sessions, grouped by month.</p></div>
+      <div class="history-year-row">
+        <select id="historyYearSelect" class="year-select"></select>
+      </div>
       <div id="historyList"></div>
     </section>
 
     <section id="statsView" class="view">
       <div class="welcome"><div class="eyebrow">YOUR PROGRESS</div><h2>Statistics.</h2><p>Small steps add up.</p></div>
+
+      <!-- MONTH IN PROGRESS -->
+      <div class="stats-section-head"><span class="eyebrow">MONTH IN PROGRESS</span></div>
       <div class="stats-grid">
         <article class="glass stat-card"><strong id="totalSessions">0</strong><small>Total workouts</small></article>
         <article class="glass stat-card"><strong id="totalMinutes">0 min</strong><small>Total minutes</small></article>
@@ -93,15 +110,29 @@
       <article class="glass stat-card wide"><div class="eyebrow">THIS WEEK</div><strong id="weeklySessions">0 workouts</strong><small>Completed sessions this week</small></article>
       <section id="statsCalendar"></section>
       <section id="statsDayDetail"></section>
-      <section id="statsChart"></section>
       <section id="statsExercisesMonth"></section>
+
+      <!-- YEAR IN PROGRESS -->
+      <div class="stats-section-head">
+        <span class="eyebrow">YEAR IN PROGRESS</span>
+        <select id="statsYearSelect" class="year-select"></select>
+      </div>
+      <div class="stats-grid">
+        <article class="glass stat-card"><strong id="yearSessions">0</strong><small>Workouts</small></article>
+        <article class="glass stat-card"><strong id="yearMinutes">0 min</strong><small>Minutes</small></article>
+      </div>
+      <section id="statsChart"></section>
       <section id="statsExercises"></section>
     </section>
 
     <div id="resumeBar" class="resume-bar glass" hidden>
       <div class="resume-bar-info">
-        <small>WORKOUT IN PROGRESS</small>
-        <strong id="resumeText"></strong>
+        <div class="resume-bar-row1">
+          <span class="resume-label">IN PROGRESS</span>
+          <span id="resumeElapsed" class="resume-elapsed">&#x23F1; 00:00</span>
+        </div>
+        <strong id="resumeExName" class="resume-ex-name"></strong>
+        <span id="resumeRemaining" class="resume-remaining"></span>
       </div>
       <div class="resume-controls">
         <button class="resume-mini" id="resumePauseBtn">⏸</button>
@@ -126,6 +157,7 @@
   <script src="./js/stats.js"></script>
   <script src="./js/routines.js"></script>
   <script src="./js/builder.js"></script>
+  <script src="./js/theme.js"></script>
   <script src="./js/history.js"></script>
   <script src="./js/app.js"></script>
   <script>if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(console.error));</script>

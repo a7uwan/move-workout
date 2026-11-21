@@ -1,7 +1,7 @@
 // MOVE Service Worker v9 — network-first for app shell, cache-first for images.
 // Network-first means opening the GitHub Pages URL always fetches the latest code.
 // If offline, falls back to the cache.
-const CACHE = 'move-pwa-v9-netfirst';
+const CACHE = 'move-pwa-v10-6updates';
 const IMG_CACHE = 'move-images-v1';
 const IMG_MAX = 80;
 const SHELL = [
@@ -9,7 +9,7 @@ const SHELL = [
   './css/style.css', './css/features.css', './css/theme-glass.css',
   './js/config.js', './js/api.js', './js/database.js',
   './js/workout-engine.js', './js/stats.js', './js/routines.js',
-  './js/builder.js', './js/history.js', './js/app.js'
+  './js/builder.js', './js/theme.js', './js/history.js', './js/app.js'
 ];
 
 // Install: pre-cache shell files.

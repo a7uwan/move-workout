@@ -140,8 +140,11 @@
 /* Fix 4: resume bar with inline controls, sits just above bottom-nav */
 .resume-bar{position:fixed;z-index:11;left:50%;transform:translateX(-50%);bottom:calc(64px + env(safe-area-inset-bottom));width:min(calc(100% - 24px),540px);padding:10px 12px;display:flex;align-items:center;gap:8px}
 .resume-bar-info{flex:1;min-width:0}
-.resume-bar small{display:block;color:var(--muted);font-size:9px;letter-spacing:1.5px}
-.resume-bar strong{display:block;font-size:13px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.resume-bar-row1{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.resume-label{font-size:9px;letter-spacing:1.5px;color:var(--muted);font-weight:700}
+.resume-elapsed{font-size:11px;color:var(--green);font-weight:700;font-variant-numeric:tabular-nums}
+.resume-ex-name{display:block;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.resume-remaining{display:block;font-size:11px;color:var(--muted);margin-top:2px}
 .resume-controls{display:flex;gap:6px;flex-shrink:0;align-items:center}
 .resume-mini{background:rgba(255,255,255,.12);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:7px 10px;font-size:12px;font-weight:700;white-space:nowrap}
 .resume-mini.green{background:var(--green);color:#08251d;border-color:var(--green)}
@@ -152,3 +155,22 @@
 .month-row strong{display:block;font-size:20px;letter-spacing:-.4px}
 .month-row small{display:block;color:var(--muted);font-size:11px;margin-top:4px}
 .resume-btn{background:var(--green);color:#08251d;border:0;border-radius:12px;padding:10px 12px;font-weight:800;font-size:11px;letter-spacing:.5px;white-space:nowrap}
+
+/* Stats sections */
+.stats-section-head{display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px}
+.stats-section-head .eyebrow{margin:0}
+
+/* Year select */
+.year-select{background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:7px 10px;font-size:12px;font:inherit;cursor:pointer}
+.history-year-row{margin-bottom:14px}
+
+/* Theme picker */
+.theme-btn{background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:12px;padding:7px 10px;font-size:16px;cursor:pointer}
+.theme-drawer{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center;padding-bottom:env(safe-area-inset-bottom)}
+.theme-drawer[hidden]{display:none!important}
+.theme-drawer-inner{padding:22px;width:min(100%,540px);border-radius:24px 24px 0 0}
+.theme-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.theme-chip{background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:14px;padding:10px 6px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer}
+.theme-chip.selected{border-color:var(--green);background:rgba(110,231,183,.15)}
+.theme-swatch{width:40px;height:40px;border-radius:10px;display:block}
+.theme-chip small{font-size:10px;color:var(--muted);letter-spacing:.5px}

@@ -5,6 +5,8 @@ let chosenReps = 0;
 let routineName = '';
 let lastStep = -1;
 let sessionStartTs = 0;
+let sessionElapsedMs = 0;   // accumulated ms (pauses not counted)
+let sessionRunning = false; // true only while timer is actively counting
 let elapsedTicker = null;
 let wakeLock = null;
 let audioCtx = null;
@@ -155,9 +157,15 @@ function refreshResumeBar() {
   const onTimer = $('timerView').classList.contains('active');
   bar.hidden = !running || onTimer;
   if (!bar.hidden) {
-    const name = lastSnap.phase === 'rest' ? 'Rest' : (lastSnap.current?.name || 'Workout');
-    $('resumeText').textContent = `${name} · ${lastSnap.phase === 'count' ? `${lastSnap.count}/${lastSnap.target}` : mmss(lastSnap.remaining)}`;
-    // Fix 4: update pause/resume icon on the mini button.
+    const phase = lastSnap.phase;
+    const name = phase === 'rest' ? 'Rest' : (lastSnap.current?.name || 'Workout');
+    const remaining = phase === 'count'
+      ? `${lastSnap.count}/${lastSnap.target} reps`
+      : `${mmss(lastSnap.remaining)} left`;
+    const elapsed = mmss(Math.round(sessionElapsedMs / 1000));
+    $('resumeExName').textContent = name;
+    $('resumeRemaining').textContent = remaining;
+    $('resumeElapsed').textContent = `⏱ ${elapsed}`;
     const pb = $('resumePauseBtn');
     if (pb) pb.textContent = lastSnap.paused ? '▶' : '⏸';
   }
@@ -220,8 +228,43 @@ function updateMediaSession(s) {
   } catch (_) { /* not supported on this browser */ }
 }
 
+// Elapsed helpers — wall-clock accumulator that pauses with the engine.
+function elapsedTick() {
+  const elEl = $('sessionElapsed');
+  if (elEl) elEl.textContent = mmss(Math.round(sessionElapsedMs / 1000));
+  refreshResumeBar();
+}
+function startElapsed() {
+  if (sessionRunning) return;
+  sessionRunning = true;
+  sessionStartTs = Date.now();
+  clearInterval(elapsedTicker);
+  elapsedTicker = setInterval(() => {
+    if (!sessionRunning) return;
+    sessionElapsedMs += Date.now() - sessionStartTs;
+    sessionStartTs = Date.now();
+    elapsedTick();
+  }, 500);
+}
+function pauseElapsed() {
+  if (!sessionRunning) return;
+  sessionRunning = false;
+  sessionElapsedMs += Date.now() - sessionStartTs;
+  elapsedTick();
+}
+function stopElapsed() {
+  pauseElapsed();
+  clearInterval(elapsedTicker);
+  elapsedTicker = null;
+}
+
 function renderTimer(s) {
   lastSnap = s;
+  // Manage elapsed timer based on engine state.
+  if (s.phase !== 'idle' && s.phase !== 'done' && s.phase !== 'stopped') {
+    if (s.paused) pauseElapsed(); else startElapsed();
+  }
+  if (s.phase === 'done' || s.phase === 'stopped') stopElapsed();
   refreshResumeBar();
   updateMediaSession(s);
   const idle = s.phase === 'idle';
@@ -269,12 +312,12 @@ function startWorkout({ name, items, reps }) {
   chosenReps = reps;
   currentItems = items;
   $('summaryCard').hidden = true;
-  sessionStartTs = Date.now();
+  sessionElapsedMs = 0;
+  sessionRunning = false;
+  sessionStartTs = 0;
   clearInterval(elapsedTicker);
-  elapsedTicker = setInterval(() => {
-    const el = $('sessionElapsed');
-    if (el) el.textContent = mmss(Math.floor((Date.now() - sessionStartTs) / 1000));
-  }, 1000);
+  const elEl = $('sessionElapsed');
+  if (elEl) elEl.textContent = '00:00';
   routineName = name;
   lastStep = -1;
   showView('timerView');
@@ -323,7 +366,7 @@ async function finishWorkout(data) {
     syncStatus: 'pending'
   };
   await MoveDB.saveWorkout(record);
-  clearInterval(elapsedTicker);
+  stopElapsed();
   releaseAudio();
   speak('Workout complete. Well done.');
   showSummary(record);
@@ -454,11 +497,39 @@ function calcStreak(logs) {
 
 let statsYear = new Date().getFullYear();
 let statsMonth = new Date().getMonth();
+let statsSelectedYear = new Date().getFullYear(); // for YEAR IN PROGRESS section
+let historyYear = new Date().getFullYear();       // for History year filter
+
+function buildYearOptions(logs) {
+  const years = [...new Set(logs.map(w => new Date(w.startedAt).getFullYear()))].sort((a, b) => b - a);
+  const cur = new Date().getFullYear();
+  if (!years.includes(cur)) years.unshift(cur);
+  return years;
+}
+
+function populateYearSelects(logs) {
+  const years = buildYearOptions(logs);
+  ['statsYearSelect', 'historyYearSelect'].forEach(id => {
+    const sel = $(id);
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = years.map(y => `<option value="${y}"${y === Number(prev || y) ? ' selected' : ''}>${y}</option>`).join('');
+  });
+}
+
+function renderYearStats(logs) {
+  const yearLogs = logs.filter(w => new Date(w.startedAt).getFullYear() === statsSelectedYear);
+  const yEl = $('yearSessions');
+  const ymEl = $('yearMinutes');
+  if (yEl) yEl.textContent = yearLogs.length;
+  if (ymEl) ymEl.textContent = `${Math.round(sumSeconds(yearLogs) / 60)} min`;
+  if (yEl) yEl.closest('article').querySelector('small').textContent = `Workouts in ${statsSelectedYear}`;
+  if (ymEl) ymEl.closest('article').querySelector('small').textContent = `Minutes in ${statsSelectedYear}`;
+}
 
 function renderStats(logs) {
   const weekLogs = logs.filter(x => x.startedAt >= startOfWeek(Date.now()));
   const streak = calcStreak(logs);
-  // Top summary cards filter to the month currently shown in the Stats calendar.
   const m = StatsView.monthSummary(logs, statsYear, statsMonth);
   const mLabel = new Date(statsYear, statsMonth, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   $('totalSessions').textContent = m.count;
@@ -468,6 +539,8 @@ function renderStats(logs) {
   $('weekMinutes').textContent = `${Math.round(sumSeconds(weekLogs) / 60)} min`;
   $('weeklySessions').textContent = `${weekLogs.length} ${weekLogs.length === 1 ? 'workout' : 'workouts'}`;
   $('streakValue').textContent = `${streak} ${streak === 1 ? 'day' : 'days'}`;
+  renderYearStats(logs);
+  populateYearSelects(logs);
 }
 
 function renderHomeMonth(logs) {
@@ -522,7 +595,7 @@ async function renderAll() {
   renderStats(logs);
   renderHomeMonth(logs);
   StatsView.render(logs);
-  HistoryView.render(logs);
+  HistoryView.render(logs, historyYear);
   await updateReminders(logs);
 }
 
@@ -686,6 +759,23 @@ RoutineBuilder.mount($('builderContainer'), { onRoutinesSaved: loadRoutines });
 
 $('todayLabel').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase();
 setStatus(navigator.onLine ? 'Ready' : 'Offline');
+
+// Year selectors.
+const statsYearSel = $('statsYearSelect');
+if (statsYearSel) statsYearSel.addEventListener('change', async () => {
+  statsSelectedYear = Number(statsYearSel.value);
+  StatsView.setStatsMonth(statsSelectedYear, statsMonth);
+  const logs = await MoveDB.getWorkouts();
+  renderYearStats(logs);
+});
+const histYearSel = $('historyYearSelect');
+if (histYearSel) histYearSel.addEventListener('change', async () => {
+  historyYear = Number(histYearSel.value);
+  const logs = await MoveDB.getWorkouts();
+  HistoryView.render(logs, historyYear);
+});
+
+ThemePicker.init();
 keepAwake();
 loadRoutines();
 renderAll();   // show cached data immediately
