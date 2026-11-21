@@ -293,10 +293,9 @@ function renderTimer(s) {
   const bar = $('timerBarFill');
   if (bar) bar.style.width = pct + '%';
 
-  // Media: show image/gif/video/youtube for the current exercise.
+  // Media: show image/gif/video/youtube for the current exercise only (no thumb in UP NEXT).
   const finished = done || stopped;
   setMedia(!finished ? (rest ? s.next?.image : s.current?.image) : '');
-  setNextImg(!finished && !rest && !idle ? s.next?.image : '');
 
   // Announce each new movement or rest once, when its step starts.
   if (!idle && !done && !stopped && s.stepIndex !== lastStep) {
@@ -356,12 +355,17 @@ function showSummary(record) {
 
 /* ---------- Saving a finished workout ---------- */
 async function finishWorkout(data) {
+  // Use the accumulated elapsed ms (pauses excluded) rather than wall-clock diff.
+  // sessionElapsedMs is the authoritative source; fall back to wall-clock only if 0.
+  const elapsedSec = sessionElapsedMs > 0
+    ? Math.round(sessionElapsedMs / 1000)
+    : Math.round((data.endedAt - data.startedAt) / 1000);
   const record = {
     id: crypto.randomUUID(),
     routineName,
     startedAt: data.startedAt,
     endedAt: data.endedAt,
-    durationSeconds: Math.round((data.endedAt - data.startedAt) / 1000),
+    durationSeconds: elapsedSec,
     reps: chosenReps,
     status: 'completed',
     details: data.details || [],
@@ -625,14 +629,17 @@ $('resumePauseBtn').onclick = () => {
 $('resumeSkipBtn').onclick = () => WorkoutEngine.skip();
 $('resumeEndBtn').onclick = async () => {
   if (!confirm('End workout and save it as a completed session?')) return;
-  clearInterval(elapsedTicker);
+  stopElapsed();
   WorkoutEngine.stop();
   releaseAudio();
   const now = Date.now();
+  const elapsedSec = sessionElapsedMs > 0
+    ? Math.round(sessionElapsedMs / 1000)
+    : Math.round((now - (sessionStartTs || now)) / 1000);
   const record = {
     id: crypto.randomUUID(), routineName,
     startedAt: sessionStartTs || now, endedAt: now,
-    durationSeconds: Math.round((now - (sessionStartTs || now)) / 1000),
+    durationSeconds: elapsedSec,
     reps: chosenReps, status: 'completed', details: [], syncStatus: 'pending'
   };
   await MoveDB.saveWorkout(record);
@@ -658,16 +665,19 @@ $('summaryCard').addEventListener('click', e => {
 });
 $('endBtn').onclick = async () => {
   if (confirm('End workout and save it as a completed session?')) {
-    clearInterval(elapsedTicker);
+    stopElapsed();
     WorkoutEngine.stop();
     releaseAudio();
     const now = Date.now();
+    const elapsedSec = sessionElapsedMs > 0
+      ? Math.round(sessionElapsedMs / 1000)
+      : Math.round((now - (sessionStartTs || now)) / 1000);
     const record = {
       id: crypto.randomUUID(),
       routineName,
       startedAt: sessionStartTs || now,
       endedAt: now,
-      durationSeconds: Math.round((now - (sessionStartTs || now)) / 1000),
+      durationSeconds: elapsedSec,
       reps: chosenReps,
       status: 'completed',
       details: [],
@@ -717,7 +727,8 @@ $('endBtn').onclick = async () => {
     if (dy >= THRESHOLD) {
       indicator.textContent = '↻ Syncing…';
       indicator.style.opacity = '1';
-      // Fix 5: activate any waiting service worker so new code loads immediately.
+      // Blur the page content while syncing.
+      document.querySelector('.app-shell').classList.add('syncing-blur');
       (async () => {
         const reg = await navigator.serviceWorker?.getRegistration();
         if (reg) {
@@ -731,6 +742,7 @@ $('endBtn').onclick = async () => {
         await refreshData();
         indicator.textContent = '↓ Pull to refresh';
         indicator.style.opacity = '0';
+        document.querySelector('.app-shell').classList.remove('syncing-blur');
       })();
     }
   }, { passive: true });

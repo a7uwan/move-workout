@@ -97,9 +97,12 @@
   backdrop-filter:blur(12px);
   -webkit-backdrop-filter:blur(12px);
 }
-.float-elapsed{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:6px}
-.float-elapsed small{font-size:9px;letter-spacing:1.5px;color:var(--muted)}
-.float-elapsed span{font-size:14px;font-weight:800;color:var(--green);font-variant-numeric:tabular-nums}
+/* UP NEXT box with elapsed side-by-side */
+.up-next{justify-content:space-between!important}
+.up-next-info{flex:1;min-width:0}
+.up-next-elapsed{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0}
+.up-next-elapsed small{font-size:9px;letter-spacing:1.5px;color:var(--muted)}
+.up-next-elapsed span{font-size:16px;font-weight:800;color:var(--green);font-variant-numeric:tabular-nums}
 
 /* Fix 2: horizontal progress bar replaces the circular ring */
 .timer-ring{display:none!important}
@@ -130,6 +133,8 @@
 
 /* Pull-to-refresh indicator */
 #pullIndicator{position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:20;padding:8px 18px;border-radius:0 0 16px 16px;background:rgba(110,231,183,.18);border:1px solid rgba(110,231,183,.35);border-top:0;color:var(--green);font-size:12px;font-weight:700;letter-spacing:.5px;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none}
+/* Pull-to-refresh blur overlay on app-shell text */
+.syncing-blur .view.active{filter:blur(3px);transition:filter .2s;pointer-events:none}
 
 /* Timer: exercise images from the Routines sheet (column Image_URL) */
 .timer-img{display:block;width:100%;max-height:200px;object-fit:contain;border-radius:18px;margin:18px 0 0;background:rgba(255,255,255,.05);border:1px solid var(--line)}
@@ -137,8 +142,8 @@
 
 /* Resume bar: shown while a routine runs and the timer screen is closed */
 [hidden]{display:none!important}
-/* Resume bar: taller, no BACK pill, tap info area to return */
-.resume-bar{position:fixed;z-index:11;left:50%;transform:translateX(-50%);bottom:calc(64px + env(safe-area-inset-bottom));width:min(calc(100% - 20px),540px);padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer}
+/* Resume bar: matches bottom-nav width, clear gap above nav */
+.resume-bar{position:fixed;z-index:11;left:50%;transform:translateX(-50%);bottom:calc(68px + env(safe-area-inset-bottom) + 8px);width:min(100%,560px);padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer}
 .resume-bar-info{flex:1;min-width:0;cursor:pointer}
 .resume-bar-row1{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
 .resume-label{font-size:9px;letter-spacing:1.6px;color:var(--muted);font-weight:700}

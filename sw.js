@@ -1,7 +1,7 @@
 // MOVE Service Worker v9 — network-first for app shell, cache-first for images.
 // Network-first means opening the GitHub Pages URL always fetches the latest code.
 // If offline, falls back to the cache.
-const CACHE = 'move-pwa-v11-theme';
+const CACHE = 'move-pwa-v12-fixes';
 const IMG_CACHE = 'move-images-v1';
 const IMG_MAX = 80;
 const SHELL = [
