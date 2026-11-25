@@ -226,3 +226,53 @@ body::before {
 
 /* ── Rep picker total text ───────────────────────────────── */
 .rep-total { color: var(--cyan); }
+
+/* ── Floating navigation bar (dark theme) ────────────────── */
+.fnav-glass {
+  background: linear-gradient(145deg, rgba(28, 31, 35, .86), rgba(15, 17, 19, .78));
+  border: 1px solid var(--glass-edge);
+  border-top-color: var(--glass-top);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .12);
+}
+.fnav-tab,
+.fnav-act {
+  color: var(--muted);
+}
+.fnav-tab:focus-visible,
+.fnav-act:focus-visible {
+  outline-color: var(--green);
+}
+.fnav-tab.active {
+  color: #0d0f10;
+  background: linear-gradient(135deg, var(--green), #aad620);
+  box-shadow: 0 8px 18px rgba(196, 240, 53, .30), inset 0 1px 0 rgba(255, 255, 255, .45);
+}
+.fnav-act.add {
+  color: #0d0f10;
+  background: linear-gradient(135deg, var(--green), #aad620);
+  box-shadow: 0 10px 22px rgba(196, 240, 53, .30), inset 0 1px 0 rgba(255, 255, 255, .45);
+}
+.fnav-sep {
+  background: var(--line);
+}
+
+/* ── Floating navigation bar (light theme) ───────────────── */
+[data-theme="light"] .fnav-glass {
+  background: linear-gradient(145deg, rgba(255, 255, 255, .84), rgba(240, 242, 245, .68));
+  border-color: rgba(0, 0, 0, .09);
+  border-top-color: rgba(255, 255, 255, .95);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, .14), inset 0 1px 0 rgba(255, 255, 255, .95);
+}
+[data-theme="light"] .fnav-tab,
+[data-theme="light"] .fnav-act {
+  color: #6b7280;
+}
+[data-theme="light"] .fnav-tab.active,
+[data-theme="light"] .fnav-act.add {
+  color: #ffffff;
+  background: linear-gradient(135deg, #16181a, #0d0f10);
+  box-shadow: 0 8px 18px rgba(13, 15, 16, .28), inset 0 1px 0 rgba(255, 255, 255, .18);
+}
+[data-theme="light"] .fnav-sep {
+  background: rgba(0, 0, 0, .12);
+}
