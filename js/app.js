@@ -15,10 +15,88 @@ let currentItems = [];
 
 const DAY_MS = 86400000;
 
+/* ---------- Floating Glassmorphism Nav ---------- */
+let curView = 'homeView';
+let lastY = 0;
+
+// [id, materialIconName, label, type]
+// type: 'tab' = view with expanding active pill, 'act' = icon-only action button
+const NAV_ITEMS = [
+  ['homeView', 'home', 'Home', 'tab'],
+  ['workoutsView', 'fitness_center', 'Workouts', 'tab'],
+  ['refresh', 'sync', 'Refresh', 'act'],
+  ['historyView', 'history', 'History', 'tab'],
+  ['statsView', 'bar_chart', 'Stats', 'tab']
+];
+
+function buildNav() {
+  const navBtn = n => n[3] === 'tab'
+    ? `<button type="button" id="nav-${n[0]}" onclick="switchView('${n[0]}')" class="fnav-tab" aria-label="${n[2]}">
+         <span class="material-symbols-outlined">${n[1]}</span>
+         <span class="fnav-lbl">${n[2]}</span>
+       </button>`
+    : `<button type="button" id="nav-${n[0]}" onclick="onRefreshClick()" class="fnav-act" aria-label="${n[2]}">
+         <span id="refIcon" class="material-symbols-outlined">${n[1]}</span>
+       </button>`;
+
+  document.getElementById('navBar').innerHTML =
+    NAV_ITEMS.map(navBtn).join('') +
+    '<span class="fnav-sep" aria-hidden="true"></span>' +
+    '<button type="button" id="nav-add" onclick="onAddClick()" class="fnav-act add" aria-label="New Routine" title="New Routine">' +
+      '<span class="material-symbols-outlined">add</span>' +
+    '</button>';
+
+  paintNav();
+}
+
+function paintNav() {
+  NAV_ITEMS.filter(n => n[3] === 'tab').forEach(n => {
+    const btn = document.getElementById('nav-' + n[0]);
+    if (!btn) return;
+    const isActive = n[0] === curView;
+    btn.classList.toggle('active', isActive);
+    if (isActive) btn.setAttribute('aria-current', 'page');
+    else btn.removeAttribute('aria-current');
+  });
+}
+
+function switchView(viewId) {
+  curView = viewId;
+  paintNav();
+  showView(viewId);
+  refreshData();
+}
+
+function onRefreshClick() {
+  toast('Syncing…');
+  refreshData();
+}
+
+function onAddClick() {
+  showView('workoutsView');
+  const builder = $('builderContainer');
+  if (builder) builder.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  buildNav();
+
+  window.addEventListener('scroll', () => {
+    const nav = document.getElementById('nav');
+    const y = window.pageYOffset || 0;
+    if (y > lastY + 4 && y > 50) nav.classList.add('compact');
+    else if (y < lastY - 4 || y < 10) nav.classList.remove('compact');
+    lastY = y <= 0 ? 0 : y;
+  }, { passive: true });
+});
+
 /* ---------- Navigation and feedback ---------- */
 function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === id));
-  document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('selected', b.dataset.view === id));
+  if (NAV_ITEMS.some(n => n[3] === 'tab' && n[0] === id)) {
+    curView = id;
+    paintNav();
+  }
   window.scrollTo(0, 0);
   refreshResumeBar();
 }
@@ -468,7 +546,6 @@ async function loadRoutines() {
   prefetchImages({ ...routines, ...custom });
   const first = Object.values(routines)[0];
   if (first) {
-    
     $('featuredName').textContent = first.name;
     $('featuredMeta').textContent = `${first.items.length} exercises · about ${fmtMins(WorkoutEngine.plannedSeconds(first.items, 1))} at 1 rep each`;
   }
@@ -618,10 +695,6 @@ async function renderAll() {
 }
 
 /* ---------- Events ---------- */
-document.querySelectorAll('.nav-item').forEach(b => b.addEventListener('click', () => {
-  showView(b.dataset.view);
-  refreshData();
-}));
 $('enableReminders').onclick = async () => {
   if (!('Notification' in window)) return;
   const result = await Notification.requestPermission();
@@ -707,6 +780,7 @@ $('endBtn').onclick = async () => {
     await refreshData();
   }
 };
+
 /* ---------- Pull-to-refresh ---------- */
 (function () {
   let startY = 0, pulling = false;
